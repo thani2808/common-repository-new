@@ -1,55 +1,53 @@
-// Dynamic Parameters Section
+// === Dynamic Parameters Section ===
 properties([
     parameters([
         [
-          $class: 'CascadeChoiceParameter',
-          choiceType: 'PT_SINGLE_SELECT',
-          description: 'Select repository from thani2808',
-          filterLength: 1,
-          name: 'REPO_NAME',
-          referencedParameters: '',
-          script: [
-            $class: 'GroovyScript',
-            script: new org.jenkinsci.plugins.scriptsecurity.sandbox.groovy.SecureGroovyScript('''
-                try {
-                    import groovy.json.JsonSlurper
-                    def githubUser = "thani2808"
-                    def url = "https://api.github.com/users/${githubUser}/repos"
-                    def conn = new URL(url).openConnection()
-                    conn.setRequestProperty("User-Agent", "jenkins")
-                    def response = new JsonSlurper().parse(conn.inputStream)
-                    return response.collect { it.name }.sort()
-                } catch (Exception e) {
-                    return ["Error fetching repos: " + e.message]
-                }
-            ''', false)
-          ]
+            $class: 'CascadeChoiceParameter',
+            choiceType: 'PT_SINGLE_SELECT',
+            description: 'Select repository from thani2808',
+            filterLength: 1,
+            name: 'REPO_NAME',
+            referencedParameters: '',
+            script: [
+                $class: 'GroovyScript',
+                script: new org.jenkinsci.plugins.scriptsecurity.sandbox.groovy.SecureGroovyScript('''
+                    try {
+                        def githubUser = "thani2808"
+                        def url = "https://api.github.com/users/${githubUser}/repos"
+                        def conn = new URL(url).openConnection()
+                        conn.setRequestProperty("User-Agent", "jenkins")
+                        def response = new groovy.json.JsonSlurper().parse(conn.inputStream)
+                        return response.collect { it.name }.sort()
+                    } catch (Exception e) {
+                        return ["Error fetching repos: ${e.message}"]
+                    }
+                ''', false)
+            ]
         ],
         [
-          $class: 'CascadeChoiceParameter',
-          choiceType: 'PT_SINGLE_SELECT',
-          description: 'Select branch of selected repo',
-          filterLength: 1,
-          name: 'COMMON_REPO_BRANCH',
-          referencedParameters: 'REPO_NAME',
-          script: [
-            $class: 'GroovyScript',
-            script: new org.jenkinsci.plugins.scriptsecurity.sandbox.groovy.SecureGroovyScript('''
-                try {
-                    import groovy.json.JsonSlurper
-                    def githubUser = "thani2808"
-                    def repo = REPO_NAME
-                    if (!repo) return ["Select a repo first"]
-                    def url = "https://api.github.com/repos/${githubUser}/${repo}/branches"
-                    def conn = new URL(url).openConnection()
-                    conn.setRequestProperty("User-Agent", "jenkins")
-                    def response = new JsonSlurper().parse(conn.inputStream)
-                    return response.collect { it.name }.sort()
-                } catch (Exception e) {
-                    return ["Error fetching branches: " + e.message]
-                }
-            ''', false)
-          ]
+            $class: 'CascadeChoiceParameter',
+            choiceType: 'PT_SINGLE_SELECT',
+            description: 'Select branch of selected repo',
+            filterLength: 1,
+            name: 'COMMON_REPO_BRANCH',
+            referencedParameters: 'REPO_NAME',
+            script: [
+                $class: 'GroovyScript',
+                script: new org.jenkinsci.plugins.scriptsecurity.sandbox.groovy.SecureGroovyScript('''
+                    try {
+                        def githubUser = "thani2808"
+                        def repo = REPO_NAME
+                        if (!repo) return ["Select a repo first"]
+                        def url = "https://api.github.com/repos/${githubUser}/${repo}/branches"
+                        def conn = new URL(url).openConnection()
+                        conn.setRequestProperty("User-Agent", "jenkins")
+                        def response = new groovy.json.JsonSlurper().parse(conn.inputStream)
+                        return response.collect { it.name }.sort()
+                    } catch (Exception e) {
+                        return ["Error fetching branches: ${e.message}"]
+                    }
+                ''', false)
+            ]
         ],
         choice(
             name: 'APP_TYPE',
@@ -59,6 +57,7 @@ properties([
     ])
 ])
 
+// === Main Pipeline ===
 pipeline {
     agent any
 
