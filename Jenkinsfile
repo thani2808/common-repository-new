@@ -19,7 +19,7 @@ properties([
                         def response = new groovy.json.JsonSlurper().parse(conn.inputStream)
                         return response.collect { it.name }.sort()
                     } catch (Exception e) {
-                        return ["Error fetching repos: ${e.message}"]
+                        return ["Error fetching repos: " + e.message]
                     }
                 ''', false)
             ]
@@ -44,7 +44,7 @@ properties([
                         def response = new groovy.json.JsonSlurper().parse(conn.inputStream)
                         return response.collect { it.name }.sort()
                     } catch (Exception e) {
-                        return ["Error fetching branches: ${e.message}"]
+                        return ["Error fetching branches: " + e.message]
                     }
                 ''', false)
             ]
@@ -81,7 +81,7 @@ pipeline {
                     env.CONTAINER_NAME = "${params.APP_TYPE}-local-container"
                     env.DOCKER_PORT = portMap[params.APP_TYPE]
                     env.DOCKERHUB_REPO = "${env.DOCKERHUB_USERNAME}/${env.IMAGE_NAME}"
-                    env.REPO_URL = "git@github.com:thani2808/${env.REPO_NAME}.git"
+                    env.REPO_URL = "git@github.com:thanigai2808/${env.REPO_NAME}.git"
                 }
             }
         }
