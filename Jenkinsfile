@@ -101,14 +101,13 @@ pipeline {
 
         stage('Checkout Target Repo') {
             steps {
-                checkout([
-                    $class: 'GitSCM',
-                    branches: [[name: "*/${params.COMMON_REPO_BRANCH}"]],
-                    userRemoteConfigs: [[
-                        url: "${env.REPO_URL}",
-                        credentialsId: env.GIT_CREDENTIALS_ID
-                    ]]
-                ])
+		checkout([$class: 'GitSCM',
+		  userRemoteConfigs: [[
+		    url: 'git@github.com:thanigai2808/dan-p81.git',
+		    credentialsId: 'your-ssh-credential-id'
+		  ]],
+		  branches: [[name: '*/feature']]
+		])
             }
         }
 
