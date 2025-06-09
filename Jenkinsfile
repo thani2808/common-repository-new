@@ -15,27 +15,23 @@ properties([
                     import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials
                     import jenkins.model.Jenkins
 
-                    try {
-                        def githubUser = "thani2808"
-                        def creds = CredentialsProvider.lookupCredentials(
-                            StandardUsernamePasswordCredentials.class,
-                            Jenkins.instance,
-                            null,
-                            null
-                        )
-                        def tokenCred = creds.find { it.id == "github-api-token" }
-                        if (!tokenCred) return ["GitHub token not found"]
-                        def token = tokenCred.password.getPlainText()
+                    def githubUser = "thani2808"
+                    def creds = CredentialsProvider.lookupCredentials(
+                        StandardUsernamePasswordCredentials.class,
+                        Jenkins.instance,
+                        null,
+                        null
+                    )
+                    def tokenCred = creds.find { it.id == "github-api-token" }
+                    if (!tokenCred) return ["GitHub token not found"]
+                    def token = tokenCred.password.getPlainText()
 
-                        def url = "https://api.github.com/users/${githubUser}/repos"
-                        def conn = new URL(url).openConnection()
-                        conn.setRequestProperty("User-Agent", "jenkins")
-                        conn.setRequestProperty("Authorization", "token ${token}")
-                        def response = new groovy.json.JsonSlurper().parse(conn.inputStream)
-                        return response.collect { it.name }.sort()
-                    } catch (Exception e) {
-                        return ["Error fetching repos: " + e.message]
-                    }
+                    def url = "https://api.github.com/users/${githubUser}/repos"
+                    def conn = new URL(url).openConnection()
+                    conn.setRequestProperty("User-Agent", "jenkins")
+                    conn.setRequestProperty("Authorization", "token ${token}")
+                    def response = new groovy.json.JsonSlurper().parse(conn.inputStream)
+                    return response.collect { it.name }.sort()
                 ''', false)
             ]
         ],
@@ -53,30 +49,26 @@ properties([
                     import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials
                     import jenkins.model.Jenkins
 
-                    try {
-                        def githubUser = "thani2808"
-                        def repo = REPO_NAME
-                        if (!repo) return ["Select a repo first"]
+                    def githubUser = "thani2808"
+                    def repo = REPO_NAME
+                    if (!repo) return ["Select a repo first"]
 
-                        def creds = CredentialsProvider.lookupCredentials(
-                            StandardUsernamePasswordCredentials.class,
-                            Jenkins.instance,
-                            null,
-                            null
-                        )
-                        def tokenCred = creds.find { it.id == "github-api-token" }
-                        if (!tokenCred) return ["GitHub token not found"]
-                        def token = tokenCred.password.getPlainText()
+                    def creds = CredentialsProvider.lookupCredentials(
+                        StandardUsernamePasswordCredentials.class,
+                        Jenkins.instance,
+                        null,
+                        null
+                    )
+                    def tokenCred = creds.find { it.id == "github-api-token" }
+                    if (!tokenCred) return ["GitHub token not found"]
+                    def token = tokenCred.password.getPlainText()
 
-                        def url = "https://api.github.com/repos/${githubUser}/${repo}/branches"
-                        def conn = new URL(url).openConnection()
-                        conn.setRequestProperty("User-Agent", "jenkins")
-                        conn.setRequestProperty("Authorization", "token ${token}")
-                        def response = new groovy.json.JsonSlurper().parse(conn.inputStream)
-                        return response.collect { it.name }.sort()
-                    } catch (Exception e) {
-                        return ["Error fetching branches: " + e.message]
-                    }
+                    def url = "https://api.github.com/repos/${githubUser}/${repo}/branches"
+                    def conn = new URL(url).openConnection()
+                    conn.setRequestProperty("User-Agent", "jenkins")
+                    conn.setRequestProperty("Authorization", "token ${token}")
+                    def response = new groovy.json.JsonSlurper().parse(conn.inputStream)
+                    return response.collect { it.name }.sort()
                 ''', false)
             ]
         ],
@@ -114,23 +106,19 @@ pipeline {
 
                     def portMap = [springboot: '9004', nginx: '80']
                     def repoName = params.REPO_NAME.trim()
+                    def branchName = params.COMMON_REPO_BRANCH.trim()
                     def imageName = "${params.APP_TYPE}-local-app"
                     def containerName = "${params.APP_TYPE}-local-container"
                     def dockerPort = portMap[params.APP_TYPE]
                     def dockerRepo = "${env.DOCKERHUB_USERNAME}/${imageName}"
                     def repoUrl = "git@github.com:thanigai2808/${repoName}.git"
-                    def repoBranch = params.COMMON_REPO_BRANCH.trim()
 
-                    // Assign locally and export to env if needed for later use
                     env.REPO_NAME = repoName
                     env.IMAGE_NAME = imageName
                     env.CONTAINER_NAME = containerName
                     env.DOCKER_PORT = dockerPort
                     env.DOCKERHUB_REPO = dockerRepo
-                    env.REPO_BRANCH = repoBranch
-
-                    // Store repoUrl in environment so it's accessible to next stage
-                    // But use return value too just in case
+                    env.REPO_BRANCH = branchName
                     env.REPO_URL = repoUrl
                 }
             }
@@ -153,16 +141,13 @@ pipeline {
         stage('Checkout Target Repo') {
             steps {
                 script {
-                    def repoUrl = env.REPO_URL
-                    def branchName = env.REPO_BRANCH
-
-                    echo "📥 Cloning ${repoUrl} @ branch ${branchName}"
+                    echo "📥 Cloning ${env.REPO_URL} @ branch ${env.REPO_BRANCH}"
 
                     checkout([
                         $class: 'GitSCM',
-                        branches: [[name: "*/${branchName}"]],
+                        branches: [[name: "*/${env.REPO_BRANCH}"]],
                         userRemoteConfigs: [[
-                            url: repoUrl,
+                            url: env.REPO_URL,
                             credentialsId: env.GIT_CREDENTIALS_ID
                         ]]
                     ])
