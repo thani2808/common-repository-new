@@ -113,13 +113,25 @@ pipeline {
                     }
 
                     def portMap = [springboot: '9004', nginx: '80']
-                    env.REPO_NAME = params.REPO_NAME.trim()
-                    env.IMAGE_NAME = "${params.APP_TYPE}-local-app"
-                    env.CONTAINER_NAME = "${params.APP_TYPE}-local-container"
-                    env.DOCKER_PORT = portMap[params.APP_TYPE]
-                    env.DOCKERHUB_REPO = "${env.DOCKERHUB_USERNAME}/${env.IMAGE_NAME}"
-                    env.REPO_URL = "git@github.com:thanigai2808/${env.REPO_NAME}.git"
-                    env.REPO_BRANCH = params.COMMON_REPO_BRANCH.trim()
+                    def repoName = params.REPO_NAME.trim()
+                    def imageName = "${params.APP_TYPE}-local-app"
+                    def containerName = "${params.APP_TYPE}-local-container"
+                    def dockerPort = portMap[params.APP_TYPE]
+                    def dockerRepo = "${env.DOCKERHUB_USERNAME}/${imageName}"
+                    def repoUrl = "git@github.com:thanigai2808/${repoName}.git"
+                    def repoBranch = params.COMMON_REPO_BRANCH.trim()
+
+                    // Assign locally and export to env if needed for later use
+                    env.REPO_NAME = repoName
+                    env.IMAGE_NAME = imageName
+                    env.CONTAINER_NAME = containerName
+                    env.DOCKER_PORT = dockerPort
+                    env.DOCKERHUB_REPO = dockerRepo
+                    env.REPO_BRANCH = repoBranch
+
+                    // Store repoUrl in environment so it's accessible to next stage
+                    // But use return value too just in case
+                    env.REPO_URL = repoUrl
                 }
             }
         }
@@ -130,6 +142,7 @@ pipeline {
                     echo "App Type         : ${params.APP_TYPE}"
                     echo "Target Repo      : ${env.REPO_NAME}"
                     echo "Target Branch    : ${env.REPO_BRANCH}"
+                    echo "Repo URL         : ${env.REPO_URL}"
                     echo "Docker Repo      : ${env.DOCKERHUB_REPO}"
                     echo "Container Name   : ${env.CONTAINER_NAME}"
                     echo "Port Mapping     : ${env.HOST_PORT}:${env.DOCKER_PORT}"
@@ -140,12 +153,16 @@ pipeline {
         stage('Checkout Target Repo') {
             steps {
                 script {
-                    echo "📥 Cloning ${env.REPO_URL} @ branch ${env.REPO_BRANCH}"
+                    def repoUrl = env.REPO_URL
+                    def branchName = env.REPO_BRANCH
+
+                    echo "📥 Cloning ${repoUrl} @ branch ${branchName}"
+
                     checkout([
                         $class: 'GitSCM',
-                        branches: [[name: "*/${env.REPO_BRANCH}"]],
+                        branches: [[name: "*/${branchName}"]],
                         userRemoteConfigs: [[
-                            url: env.REPO_URL,
+                            url: repoUrl,
                             credentialsId: env.GIT_CREDENTIALS_ID
                         ]]
                     ])
