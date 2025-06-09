@@ -11,11 +11,26 @@ properties([
             script: [
                 $class: 'GroovyScript',
                 script: new org.jenkinsci.plugins.scriptsecurity.sandbox.groovy.SecureGroovyScript('''
+                    import com.cloudbees.plugins.credentials.CredentialsProvider
+                    import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials
+                    import jenkins.model.Jenkins
+
                     try {
                         def githubUser = "thani2808"
+                        def creds = CredentialsProvider.lookupCredentials(
+                            StandardUsernamePasswordCredentials.class,
+                            Jenkins.instance,
+                            null,
+                            null
+                        )
+                        def tokenCred = creds.find { it.id == "github-api-token" }
+                        if (!tokenCred) return ["GitHub token not found"]
+                        def token = tokenCred.password.getPlainText()
+
                         def url = "https://api.github.com/users/${githubUser}/repos"
                         def conn = new URL(url).openConnection()
                         conn.setRequestProperty("User-Agent", "jenkins")
+                        conn.setRequestProperty("Authorization", "token ${token}")
                         def response = new groovy.json.JsonSlurper().parse(conn.inputStream)
                         return response.collect { it.name }.sort()
                     } catch (Exception e) {
@@ -34,13 +49,29 @@ properties([
             script: [
                 $class: 'GroovyScript',
                 script: new org.jenkinsci.plugins.scriptsecurity.sandbox.groovy.SecureGroovyScript('''
+                    import com.cloudbees.plugins.credentials.CredentialsProvider
+                    import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials
+                    import jenkins.model.Jenkins
+
                     try {
                         def githubUser = "thani2808"
                         def repo = REPO_NAME
                         if (!repo) return ["Select a repo first"]
+
+                        def creds = CredentialsProvider.lookupCredentials(
+                            StandardUsernamePasswordCredentials.class,
+                            Jenkins.instance,
+                            null,
+                            null
+                        )
+                        def tokenCred = creds.find { it.id == "github-api-token" }
+                        if (!tokenCred) return ["GitHub token not found"]
+                        def token = tokenCred.password.getPlainText()
+
                         def url = "https://api.github.com/repos/${githubUser}/${repo}/branches"
                         def conn = new URL(url).openConnection()
                         conn.setRequestProperty("User-Agent", "jenkins")
+                        conn.setRequestProperty("Authorization", "token ${token}")
                         def response = new groovy.json.JsonSlurper().parse(conn.inputStream)
                         return response.collect { it.name }.sort()
                     } catch (Exception e) {
@@ -88,7 +119,7 @@ pipeline {
                     env.DOCKER_PORT = portMap[params.APP_TYPE]
                     env.DOCKERHUB_REPO = "${env.DOCKERHUB_USERNAME}/${env.IMAGE_NAME}"
                     env.REPO_URL = "git@github.com:thanigai2808/${env.REPO_NAME}.git"
-                    env.REPO_BRANCH = params.COMMON_REPO_BRANCH
+                    env.REPO_BRANCH = params.COMMON_REPO_BRANCH.trim()
                 }
             }
         }
@@ -106,25 +137,21 @@ pipeline {
             }
         }
 
-	stage('Checkout Target Repo') {
-	    steps {
-	        script {
-	            def repoUrl = "git@github.com:thanigai2808/${params.REPO_NAME.trim()}.git"
-	            def branchName = params.COMMON_REPO_BRANCH.trim()
-
-	            echo "📥 Cloning ${repoUrl} @ branch ${branchName}"
-
-	            checkout([
-	                $class: 'GitSCM',
-	                branches: [[name: "*/${branchName}"]],
-	                userRemoteConfigs: [[
-	                    url: repoUrl,
-	                    credentialsId: env.GIT_CREDENTIALS_ID
-	                ]]
-	            ])
-	        }
-	    }
-	}
+        stage('Checkout Target Repo') {
+            steps {
+                script {
+                    echo "📥 Cloning ${env.REPO_URL} @ branch ${env.REPO_BRANCH}"
+                    checkout([
+                        $class: 'GitSCM',
+                        branches: [[name: "*/${env.REPO_BRANCH}"]],
+                        userRemoteConfigs: [[
+                            url: env.REPO_URL,
+                            credentialsId: env.GIT_CREDENTIALS_ID
+                        ]]
+                    ])
+                }
+            }
+        }
 
         stage('Build App') {
             when { expression { params.APP_TYPE == 'springboot' } }
