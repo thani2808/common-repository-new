@@ -106,18 +106,25 @@ pipeline {
             }
         }
 
-        stage('Checkout Target Repo') {
-            steps {
-                checkout([
-                    $class: 'GitSCM',
-                    branches: [[name: "*/${env.REPO_BRANCH}"]],
-                    userRemoteConfigs: [[
-                        url: "${env.REPO_URL}",
-                        credentialsId: "${env.GIT_CREDENTIALS_ID}"
-                    ]]
-                ])
-            }
-        }
+	stage('Checkout Target Repo') {
+	    steps {
+	        script {
+	            def repoUrl = "git@github.com:thanigai2808/${params.REPO_NAME.trim()}.git"
+	            def branchName = params.COMMON_REPO_BRANCH.trim()
+
+	            echo "📥 Cloning ${repoUrl} @ branch ${branchName}"
+
+	            checkout([
+	                $class: 'GitSCM',
+	                branches: [[name: "*/${branchName}"]],
+	                userRemoteConfigs: [[
+	                    url: repoUrl,
+	                    credentialsId: env.GIT_CREDENTIALS_ID
+	                ]]
+	            ])
+	        }
+	    }
+	}
 
         stage('Build App') {
             when { expression { params.APP_TYPE == 'springboot' } }
