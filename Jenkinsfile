@@ -12,19 +12,20 @@ properties([
                 $class: 'GroovyScript',
                 script: new org.jenkinsci.plugins.scriptsecurity.sandbox.groovy.SecureGroovyScript('''
                     import com.cloudbees.plugins.credentials.CredentialsProvider
-                    import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials
+                    import com.cloudbees.plugins.credentials.common.StringCredentials
                     import jenkins.model.Jenkins
 
                     def githubUser = "thani2808"
+
                     def creds = CredentialsProvider.lookupCredentials(
-                        StandardUsernamePasswordCredentials.class,
+                        StringCredentials.class,
                         Jenkins.instance,
                         null,
                         null
                     )
                     def tokenCred = creds.find { it.id == "github-api-token" }
                     if (!tokenCred) return ["GitHub token not found"]
-                    def token = tokenCred.password.getPlainText()
+                    def token = tokenCred.secret.plainText
 
                     def url = "https://api.github.com/users/${githubUser}/repos"
                     def conn = new URL(url).openConnection()
@@ -46,7 +47,7 @@ properties([
                 $class: 'GroovyScript',
                 script: new org.jenkinsci.plugins.scriptsecurity.sandbox.groovy.SecureGroovyScript('''
                     import com.cloudbees.plugins.credentials.CredentialsProvider
-                    import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials
+                    import com.cloudbees.plugins.credentials.common.StringCredentials
                     import jenkins.model.Jenkins
 
                     def githubUser = "thani2808"
@@ -54,14 +55,14 @@ properties([
                     if (!repo) return ["Select a repo first"]
 
                     def creds = CredentialsProvider.lookupCredentials(
-                        StandardUsernamePasswordCredentials.class,
+                        StringCredentials.class,
                         Jenkins.instance,
                         null,
                         null
                     )
                     def tokenCred = creds.find { it.id == "github-api-token" }
                     if (!tokenCred) return ["GitHub token not found"]
-                    def token = tokenCred.password.getPlainText()
+                    def token = tokenCred.secret.plainText
 
                     def url = "https://api.github.com/repos/${githubUser}/${repo}/branches"
                     def conn = new URL(url).openConnection()
