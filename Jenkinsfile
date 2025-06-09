@@ -7,19 +7,31 @@ properties([
          filterLength: 1,
          name: 'REPO_NAME',
          referencedParameters: '',
-         script: [
-             $class: 'GroovyScript',
-             script: new org.jenkinsci.plugins.scriptsecurity.sandbox.groovy.SecureGroovyScript('''
-                 import groovy.json.JsonSlurper
-                 def githubUser = "thani2808"
-                 def url = "https://api.github.com/users/${githubUser}/repos"
-                 def conn = new URL(url).openConnection()
-                 conn.setRequestProperty("User-Agent", "jenkins")
-                 def response = new JsonSlurper().parse(conn.inputStream)
-                 return response.collect { it.name }.sort()
-             ''', false)
-         ]
-        ],
+         script: 
+	[
+	  $class: 'CascadeChoiceParameter',
+	  choiceType: 'PT_SINGLE_SELECT',
+	  description: 'Select repository from thani2808',
+	  filterLength: 1,
+	  name: 'REPO_NAME',
+	  referencedParameters: '',
+	  script: [
+	    $class: 'GroovyScript',
+	    script: new org.jenkinsci.plugins.scriptsecurity.sandbox.groovy.SecureGroovyScript('''
+	        try {
+	            import groovy.json.JsonSlurper
+	            def githubUser = "thani2808"
+	            def url = "https://api.github.com/users/${githubUser}/repos"
+	            def conn = new URL(url).openConnection()
+	            conn.setRequestProperty("User-Agent", "jenkins")
+	            def response = new JsonSlurper().parse(conn.inputStream)
+	            return response.collect { it.name }.sort()
+	        } catch (Exception e) {
+	            return ["Error fetching repos: " + e.message]
+	        }
+	    ''', false)
+	  ]
+	],
 
         [$class: 'CascadeChoiceParameter',
          choiceType: 'PT_SINGLE_SELECT',
