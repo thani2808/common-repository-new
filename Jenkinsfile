@@ -1,4 +1,3 @@
-// Dynamic Parameters Section
 properties([
     parameters([
 
@@ -10,19 +9,15 @@ properties([
          referencedParameters: '',
          script: [
              $class: 'GroovyScript',
-             script: [
-                 classpath: [],
-                 sandbox: false,
-                 script: '''
-                     import groovy.json.JsonSlurper
-                     def githubUser = "thani2808"
-                     def url = "https://api.github.com/users/${githubUser}/repos"
-                     def conn = new URL(url).openConnection()
-                     conn.setRequestProperty("User-Agent", "jenkins")
-                     def response = new JsonSlurper().parse(conn.inputStream)
-                     return response.collect { it.name }.sort()
-                 '''
-             ]
+             script: new org.jenkinsci.plugins.scriptsecurity.sandbox.groovy.SecureGroovyScript('''
+                 import groovy.json.JsonSlurper
+                 def githubUser = "thani2808"
+                 def url = "https://api.github.com/users/${githubUser}/repos"
+                 def conn = new URL(url).openConnection()
+                 conn.setRequestProperty("User-Agent", "jenkins")
+                 def response = new JsonSlurper().parse(conn.inputStream)
+                 return response.collect { it.name }.sort()
+             ''', false)
          ]
         ],
 
@@ -34,21 +29,17 @@ properties([
          referencedParameters: 'REPO_NAME',
          script: [
              $class: 'GroovyScript',
-             script: [
-                 classpath: [],
-                 sandbox: false,
-                 script: '''
-                     import groovy.json.JsonSlurper
-                     def githubUser = "thani2808"
-                     def repo = REPO_NAME
-                     if (!repo) return ["Select a repo first"]
-                     def url = "https://api.github.com/repos/${githubUser}/${repo}/branches"
-                     def conn = new URL(url).openConnection()
-                     conn.setRequestProperty("User-Agent", "jenkins")
-                     def response = new JsonSlurper().parse(conn.inputStream)
-                     return response.collect { it.name }.sort()
-                 '''
-             ]
+             script: new org.jenkinsci.plugins.scriptsecurity.sandbox.groovy.SecureGroovyScript('''
+                 import groovy.json.JsonSlurper
+                 def githubUser = "thani2808"
+                 def repo = REPO_NAME
+                 if (!repo) return ["Select a repo first"]
+                 def url = "https://api.github.com/repos/${githubUser}/${repo}/branches"
+                 def conn = new URL(url).openConnection()
+                 conn.setRequestProperty("User-Agent", "jenkins")
+                 def response = new JsonSlurper().parse(conn.inputStream)
+                 return response.collect { it.name }.sort()
+             ''', false)
          ]
         ],
 
@@ -60,7 +51,6 @@ properties([
     ])
 ])
 
-// Pipeline Execution Section
 pipeline {
     agent any
 
@@ -74,12 +64,17 @@ pipeline {
         stage('Initialize') {
             steps {
                 script {
+                    if (!params.REPO_NAME?.trim()) {
+                        error "❌ REPO_NAME is empty. Please select a repo."
+                    }
+
                     def portMap = [springboot: '9004', nginx: '80']
+                    env.REPO_NAME = params.REPO_NAME.trim()
                     env.IMAGE_NAME = "${params.APP_TYPE}-local-app"
                     env.CONTAINER_NAME = "${params.APP_TYPE}-local-container"
                     env.DOCKER_PORT = portMap[params.APP_TYPE]
                     env.DOCKERHUB_REPO = "${env.DOCKERHUB_USERNAME}/${env.IMAGE_NAME}"
-                    env.REPO_URL = "git@github.com:thani2808/${params.REPO_NAME}.git"
+                    env.REPO_URL = "git@github.com:thani2808/${env.REPO_NAME}.git"
                 }
             }
         }
