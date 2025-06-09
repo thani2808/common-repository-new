@@ -68,6 +68,12 @@ pipeline {
     }
 
     stages {
+        stage('Clean Workspace') {
+            steps {
+                cleanWs()
+            }
+        }
+
         stage('Initialize') {
             steps {
                 script {
@@ -82,6 +88,7 @@ pipeline {
                     env.DOCKER_PORT = portMap[params.APP_TYPE]
                     env.DOCKERHUB_REPO = "${env.DOCKERHUB_USERNAME}/${env.IMAGE_NAME}"
                     env.REPO_URL = "git@github.com:thanigai2808/${env.REPO_NAME}.git"
+                    env.REPO_BRANCH = params.COMMON_REPO_BRANCH
                 }
             }
         }
@@ -90,8 +97,8 @@ pipeline {
             steps {
                 script {
                     echo "App Type         : ${params.APP_TYPE}"
-                    echo "Target Repo      : ${params.REPO_NAME}"
-                    echo "Target Branch    : ${params.COMMON_REPO_BRANCH}"
+                    echo "Target Repo      : ${env.REPO_NAME}"
+                    echo "Target Branch    : ${env.REPO_BRANCH}"
                     echo "Docker Repo      : ${env.DOCKERHUB_REPO}"
                     echo "Container Name   : ${env.CONTAINER_NAME}"
                     echo "Port Mapping     : ${env.HOST_PORT}:${env.DOCKER_PORT}"
@@ -101,13 +108,14 @@ pipeline {
 
         stage('Checkout Target Repo') {
             steps {
-		checkout([$class: 'GitSCM',
-		  userRemoteConfigs: [[
-		    url: 'git@github.com:thanigai2808/dan-p81.git',
-		    credentialsId: 'your-ssh-credential-id'
-		  ]],
-		  branches: [[name: '*/feature']]
-		])
+                checkout([
+                    $class: 'GitSCM',
+                    branches: [[name: "*/${env.REPO_BRANCH}"]],
+                    userRemoteConfigs: [[
+                        url: "${env.REPO_URL}",
+                        credentialsId: "${env.GIT_CREDENTIALS_ID}"
+                    ]]
+                ])
             }
         }
 
