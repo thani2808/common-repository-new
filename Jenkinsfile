@@ -114,12 +114,12 @@ pipeline {
                     def dockerRepo = "${env.DOCKERHUB_USERNAME}/${imageName}"
                     def repoUrl = "git@github.com:thanigai2808/${repoName}.git"
 
-                    env.REPO_NAME = repoName
+		    env.REPO_NAME = repoName
+		    env.REPO_BRANCH = branchName
                     env.IMAGE_NAME = imageName
                     env.CONTAINER_NAME = containerName
                     env.DOCKER_PORT = dockerPort
                     env.DOCKERHUB_REPO = dockerRepo
-                    env.REPO_BRANCH = branchName
                     env.REPO_URL = repoUrl
                 }
             }
@@ -146,7 +146,7 @@ pipeline {
 
                     checkout([
                         $class: 'GitSCM',
-                        branches: [[name: "*/${env.REPO_BRANCH}"]],
+                        branches: [[name: "${env.REPO_BRANCH}"]],
                         userRemoteConfigs: [[
                             url: env.REPO_URL,
                             credentialsId: env.GIT_CREDENTIALS_ID
