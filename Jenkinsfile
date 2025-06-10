@@ -12,6 +12,7 @@ properties([
                 $class: 'GroovyScript',
                 script: new org.jenkinsci.plugins.scriptsecurity.sandbox.groovy.SecureGroovyScript('''
                     import com.cloudbees.plugins.credentials.CredentialsProvider
+		    import com.cloudbees.plugins.credentials.common.StandardCredentials
                     import com.cloudbees.plugins.credentials.common.StringCredentials
                     import jenkins.model.Jenkins
 
@@ -24,7 +25,8 @@ properties([
                         null
                     )
                     def tokenCred = creds.find { it.id == "github-api-token" }
-                    if (!tokenCred) return ["GitHub token not found"]
+                    println tokenCred ? "✅ Found GitHub token" : "❌ GitHub token not found"
+		    if (!tokenCred) return ["GitHub token not found"]
                     def token = tokenCred.secret.plainText
 
                     def url = "https://api.github.com/users/${githubUser}/repos"
@@ -47,6 +49,7 @@ properties([
                 $class: 'GroovyScript',
                 script: new org.jenkinsci.plugins.scriptsecurity.sandbox.groovy.SecureGroovyScript('''
                     import com.cloudbees.plugins.credentials.CredentialsProvider
+		    import com.cloudbees.plugins.credentials.common.StandardCredentials
                     import com.cloudbees.plugins.credentials.common.StringCredentials
                     import jenkins.model.Jenkins
 
@@ -61,6 +64,7 @@ properties([
                         null
                     )
                     def tokenCred = creds.find { it.id == "github-api-token" }
+		    println tokenCred ? "✅ Found GitHub token" : "❌ GitHub token not found"
                     if (!tokenCred) return ["GitHub token not found"]
                     def token = tokenCred.secret.plainText
 
