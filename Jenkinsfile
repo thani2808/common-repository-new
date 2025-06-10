@@ -42,7 +42,7 @@ properties([
             ]
         ],
         [
-            			$class: 'CascadeChoiceParameter',
+            $class: 'CascadeChoiceParameter',
             choiceType: 'PT_SINGLE_SELECT',
             description: 'Select branch of selected repo',
             filterLength: 1,
@@ -95,11 +95,6 @@ properties([
 pipeline {
     agent any
 
-    parameters {
-        string(name: 'REPO_NAME', defaultValue: '', description: 'GitHub repository name (without .git)')
-        string(name: 'COMMON_REPO_BRANCH', defaultValue: 'feature', description: 'Branch to use')
-    }
-
     environment {
         DOCKERHUB_USERNAME = 'thanigai2808'
         HOST_PORT = '9004'
@@ -125,8 +120,8 @@ pipeline {
                     def dockerRepo = "${env.DOCKERHUB_USERNAME}/${imageName}"
                     def repoUrl = "git@github.com:thani2808/${repoName}.git"
 
-		    env.REPO_NAME = repoName
-		    env.REPO_BRANCH = branchName
+                    env.REPO_NAME = repoName
+                    env.REPO_BRANCH = branchName
                     env.IMAGE_NAME = imageName
                     env.CONTAINER_NAME = containerName
                     env.DOCKER_PORT = dockerPort
@@ -138,17 +133,17 @@ pipeline {
 
         stage('Checkout Target Repo') {
             steps {
-                    checkout([
-                        $class: 'GitSCM',
-                        branches: [[name: "${env.REPO_BRANCH}"]],
-                        userRemoteConfigs: [[
-                            url: env.REPO_URL,
-                            credentialsId: env.GIT_CREDENTIALS_ID,
-			    refspec: "+refs/heads/${env.REPO_BRANCH}:refs/remotes/origin/${env.REPO_BRANCH}"	
-                        ]]
-                    ])
-                }
+                checkout([
+                    $class: 'GitSCM',
+                    branches: [[name: "${env.REPO_BRANCH}"]],
+                    userRemoteConfigs: [[
+                        url: env.REPO_URL,
+                        credentialsId: env.GIT_CREDENTIALS_ID,
+                        refspec: "+refs/heads/${env.REPO_BRANCH}:refs/remotes/origin/${env.REPO_BRANCH}"
+                    ]]
+                ])
             }
+        }
 
         stage('Build App') {
             when { expression { params.APP_TYPE == 'springboot' } }
@@ -181,27 +176,37 @@ pipeline {
             }
         }
 
-        stage('Health Check') {
-            steps {
-                script {
-                    sh """
-                        retries=10
-                        for i in \$(seq 1 \$retries); do
-                          CODE=\$(curl -o /dev/null -s -w "%{http_code}" http://localhost:${env.HOST_PORT})
-                          if [[ "\$CODE" == "200" ]]; then
-                            echo "✅ App is up!"
-                            exit 0
+    stage('Health Check') {
+        steps {
+            script {
+                sh '''
+                    # Ensure HOST_PORT is set, default to 9004 if not
+                    HOST_PORT="${HOST_PORT:-9004}"
+                    HOST_IP=$(ip route | awk '/default/ { print $3 }')
+                    echo "📡 Starting health check on http://$HOST_IP:$HOST_PORT"
+                    retries=10
+
+                    for i in $(seq 1 $retries); do
+                      CODE=$(curl -o /dev/null -s -w "%{http_code}" http://$HOST_IP:$HOST_PORT)
+                      echo "Attempt $i: HTTP Status Code $CODE"
+                      if [ "$CODE" -eq 200 ]; then
+                        echo "✅ Service is healthy"
+                        break
                           else
-                            echo "⏳ Waiting for app... (\$i/\$retries)"
-                            sleep 5
+                        echo "⏳ Waiting for service... ($i/$retries)"
+                        sleep 3
                           fi
                         done
-                        echo "❌ App failed to start"
-                        exit 1
-                    """
-                }
+
+                        if [ "$CODE" -ne 200 ]; then
+                          echo "❌ Service did not become healthy in time"
+                          exit 1
+                        fi
+                '''
             }
         }
+    }
+
 
         stage('Success') {
             steps {
