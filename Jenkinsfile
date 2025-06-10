@@ -102,13 +102,15 @@ pipeline {
             }
         }
 
+    parameters {
+        choice(name: 'APP_TYPE', choices: ['springboot', 'nginx'], description: 'Type of app')
+        string(name: 'REPO_NAME', defaultValue: '', description: 'GitHub repository name (without .git)')
+        string(name: 'COMMON_REPO_BRANCH', defaultValue: 'feature', description: 'Branch to use')
+    }	
+
         stage('Initialize') {
             steps {
                 script {
-                    if (!params.REPO_NAME?.trim()) {
-                        error "❌ REPO_NAME is empty. Please select a repo."
-                    }
-
                     def portMap = [springboot: '9004', nginx: '80']
                     def repoName = params.REPO_NAME.trim()
                     def branchName = params.COMMON_REPO_BRANCH.trim()
@@ -116,7 +118,7 @@ pipeline {
                     def containerName = "${params.APP_TYPE}-local-container"
                     def dockerPort = portMap[params.APP_TYPE]
                     def dockerRepo = "${env.DOCKERHUB_USERNAME}/${imageName}"
-                    def repoUrl = "git@github.com:thanigai2808/${repoName}.git"
+                    def repoUrl = "git@github.com:thani2808/${repoName}.git"
 
 		    env.REPO_NAME = repoName
 		    env.REPO_BRANCH = branchName
@@ -129,31 +131,15 @@ pipeline {
             }
         }
 
-        stage('Print Config') {
-            steps {
-                script {
-                    echo "App Type         : ${params.APP_TYPE}"
-                    echo "Target Repo      : ${env.REPO_NAME}"
-                    echo "Target Branch    : ${env.REPO_BRANCH}"
-                    echo "Repo URL         : ${env.REPO_URL}"
-                    echo "Docker Repo      : ${env.DOCKERHUB_REPO}"
-                    echo "Container Name   : ${env.CONTAINER_NAME}"
-                    echo "Port Mapping     : ${env.HOST_PORT}:${env.DOCKER_PORT}"
-                }
-            }
-        }
-
         stage('Checkout Target Repo') {
             steps {
-                script {
-                    echo "📥 Cloning ${env.REPO_URL} @ branch ${env.REPO_BRANCH}"
-
                     checkout([
                         $class: 'GitSCM',
                         branches: [[name: "${env.REPO_BRANCH}"]],
                         userRemoteConfigs: [[
                             url: env.REPO_URL,
-                            credentialsId: env.GIT_CREDENTIALS_ID
+                            credentialsId: env.GIT_CREDENTIALS_ID,
+			    refspec: "+refs/heads/${env.REPO_BRANCH}:refs/remotes/origin/${env.REPO_BRANCH}"	
                         ]]
                     ])
                 }
