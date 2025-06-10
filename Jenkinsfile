@@ -12,34 +12,37 @@ properties([
                 $class: 'GroovyScript',
                 script: new org.jenkinsci.plugins.scriptsecurity.sandbox.groovy.SecureGroovyScript('''
                     import com.cloudbees.plugins.credentials.CredentialsProvider
-		    import com.cloudbees.plugins.credentials.common.StandardCredentials
-                    import com.cloudbees.plugins.credentials.common.StringCredentials
+                    import com.cloudbees.plugins.credentials.common.StandardCredentials
+                    import com.cloudbees.plugins.credentials.common.IdCredentials
+                    import com.cloudbees.plugins.credentials.CredentialsMatchers
+                    import com.cloudbees.plugins.credentials.impl.BaseStandardCredentials
                     import jenkins.model.Jenkins
+                    import groovy.json.JsonSlurper
 
                     def githubUser = "thani2808"
 
                     def creds = CredentialsProvider.lookupCredentials(
-                        StringCredentials.class,
+                        BaseStandardCredentials.class,
                         Jenkins.instance,
                         null,
                         null
                     )
                     def tokenCred = creds.find { it.id == "github-api-token" }
-                    println tokenCred ? "✅ Found GitHub token" : "❌ GitHub token not found"
-		    if (!tokenCred) return ["GitHub token not found"]
-                    def token = tokenCred.secret.plainText
+                    if (!tokenCred) return ["❌ GitHub token not found"]
+
+                    def token = tokenCred.secret.getPlainText()
 
                     def url = "https://api.github.com/users/${githubUser}/repos"
                     def conn = new URL(url).openConnection()
                     conn.setRequestProperty("User-Agent", "jenkins")
                     conn.setRequestProperty("Authorization", "token ${token}")
-                    def response = new groovy.json.JsonSlurper().parse(conn.inputStream)
+                    def response = new JsonSlurper().parse(conn.inputStream)
                     return response.collect { it.name }.sort()
                 ''', false)
             ]
         ],
         [
-            $class: 'CascadeChoiceParameter',
+            			$class: 'CascadeChoiceParameter',
             choiceType: 'PT_SINGLE_SELECT',
             description: 'Select branch of selected repo',
             filterLength: 1,
@@ -49,30 +52,33 @@ properties([
                 $class: 'GroovyScript',
                 script: new org.jenkinsci.plugins.scriptsecurity.sandbox.groovy.SecureGroovyScript('''
                     import com.cloudbees.plugins.credentials.CredentialsProvider
-		    import com.cloudbees.plugins.credentials.common.StandardCredentials
-                    import com.cloudbees.plugins.credentials.common.StringCredentials
+                    import com.cloudbees.plugins.credentials.common.StandardCredentials
+                    import com.cloudbees.plugins.credentials.common.IdCredentials
+                    import com.cloudbees.plugins.credentials.CredentialsMatchers
+                    import com.cloudbees.plugins.credentials.impl.BaseStandardCredentials
                     import jenkins.model.Jenkins
+                    import groovy.json.JsonSlurper
 
                     def githubUser = "thani2808"
-                    def repo = REPO_NAME
+					def repo = REPO_NAME
                     if (!repo) return ["Select a repo first"]
 
                     def creds = CredentialsProvider.lookupCredentials(
-                        StringCredentials.class,
+                        BaseStandardCredentials.class,
                         Jenkins.instance,
                         null,
                         null
                     )
                     def tokenCred = creds.find { it.id == "github-api-token" }
-		    println tokenCred ? "✅ Found GitHub token" : "❌ GitHub token not found"
-                    if (!tokenCred) return ["GitHub token not found"]
-                    def token = tokenCred.secret.plainText
+                    if (!tokenCred) return ["❌ GitHub token not found"]
+
+                    def token = tokenCred.secret.getPlainText()
 
                     def url = "https://api.github.com/repos/${githubUser}/${repo}/branches"
                     def conn = new URL(url).openConnection()
                     conn.setRequestProperty("User-Agent", "jenkins")
                     conn.setRequestProperty("Authorization", "token ${token}")
-                    def response = new groovy.json.JsonSlurper().parse(conn.inputStream)
+                    def response = new JsonSlurper().parse(conn.inputStream)
                     return response.collect { it.name }.sort()
                 ''', false)
             ]
