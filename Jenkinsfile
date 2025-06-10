@@ -95,6 +95,11 @@ properties([
 pipeline {
     agent any
 
+    parameters {
+        string(name: 'REPO_NAME', defaultValue: '', description: 'GitHub repository name (without .git)')
+        string(name: 'COMMON_REPO_BRANCH', defaultValue: 'feature', description: 'Branch to use')
+    }
+
     environment {
         DOCKERHUB_USERNAME = 'thanigai2808'
         HOST_PORT = '9004'
@@ -107,12 +112,6 @@ pipeline {
                 cleanWs()
             }
         }
-
-    parameters {
-        choice(name: 'APP_TYPE', choices: ['springboot', 'nginx'], description: 'Type of app')
-        string(name: 'REPO_NAME', defaultValue: '', description: 'GitHub repository name (without .git)')
-        string(name: 'COMMON_REPO_BRANCH', defaultValue: 'feature', description: 'Branch to use')
-    }	
 
         stage('Initialize') {
             steps {
@@ -150,7 +149,6 @@ pipeline {
                     ])
                 }
             }
-        }
 
         stage('Build App') {
             when { expression { params.APP_TYPE == 'springboot' } }
