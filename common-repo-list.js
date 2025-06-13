@@ -15,4 +15,12 @@
     "host_port": "9004",
     "git_credentials_id": "private-key-jenkins"
   }
+  {
+    "repo-name": "hello-world-springboot",
+    "app-type": "springboot",
+    "git-url": "git@github.com:thani2808/hello-world-springboot.git",
+    "dockerhub_username": "thanigai2808",
+    "host_port": "9004",
+    "git_credentials_id": "private-key-jenkins"
+  }
 ]
