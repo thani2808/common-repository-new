@@ -1,14 +1,16 @@
-# Use a lightweight OpenJDK 17 base image
+# Use a minimal JDK 17 base image
 FROM eclipse-temurin:17-jdk-alpine
 
-# Set the working directory inside the container
+# Set the working directory
 WORKDIR /app
 
-# Copy the JAR file into the container (replace with your actual jar name if needed)
-COPY target/*.jar eureka-discovery-server.jar
+# Copy the JAR from the build context
+# You can also use build-arg to make this dynamic if needed
+ARG JAR_FILE=target/eureka-discovery-server-0.0.1-SNAPSHOT.jar
+COPY ${JAR_FILE} app.jar
 
-# Expose the Eureka port
+# Expose Eureka port
 EXPOSE 8761
 
-# Run the application
-ENTRYPOINT ["java", "-jar", "eureka-discovery-server.jar"]
+# Run the Eureka Discovery Server
+ENTRYPOINT ["java", "-jar", "app.jar"]
