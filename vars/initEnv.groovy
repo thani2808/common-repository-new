@@ -1,30 +1,62 @@
 import groovy.json.JsonSlurper
 import org.example.CommonConfig
 
-def call(Map args = [:]) {
-    def repoName = args.REPO_NAME?.trim()
-    def branchName = args.COMMON_REPO_BRANCH?.trim()
+def call(Map config = [:]) {
+  env.REPO_NAME    = config.REPO_NAME
+  env.REPO_BRANCH  = config.COMMON_REPO_BRANCH
+  env.REPO_URL     = "git@github.com:thani2808/${env.REPO_NAME}.git"
 
-    if (!repoName || !branchName) {
-        error "❌ REPO_NAME or COMMON_REPO_BRANCH is empty."
-    }
+  // Default values
+  env.PROJECT_DIR     = '.'
+  env.CONTAINER_NAME  = "${env.REPO_NAME}-container"
+  env.IMAGE_NAME      = "${env.REPO_NAME}-image"
+  env.IS_EUREKA       = 'false'
 
-    echo "📦 Initializing for repo: ${repoName}, branch: ${branchName}"
-    env.REPO_NAME = repoName
-    env.REPO_BRANCH = branchName
-    env.REPO_URL = "git@github.com:thani2808/${repoName}.git"
+  // Determine APP_TYPE and other flags based on repo name or known logic
+  switch (env.REPO_NAME) {
+    case 'common-repository-new':
+      env.APP_TYPE       = 'springboot'
+      env.PROJECT_DIR    = 'eureka-discovery-server'
+      env.IMAGE_NAME     = 'eureka-server-image'
+      env.CONTAINER_NAME = 'eureka-server-container'
+      env.IS_EUREKA      = 'true'
+      break
 
-    // Load JSON config from resources
-    def jsonText = libraryResource('common-repo-list.js')
-    def config = new JsonSlurper().parseText(jsonText)
-    def target = config.find { it['repo-name'] == repoName }
+    case ~/.*node.*/:
+      env.APP_TYPE = 'nodejs'
+      break
 
-    if (!target) error "❌ No config found for ${repoName}"
+    case ~/.*nginx.*/:
+      env.APP_TYPE = 'nginx'
+      break
 
-    env.APP_TYPE = target['app-type']
-    env.IMAGE_NAME = "thanigai2808/${repoName}".toLowerCase()
-    env.DOCKER_PORT = target['host_port'] ?: '9004'
-    env.CONTAINER_NAME = "${repoName}-container".toLowerCase()
+    default:
+      env.APP_TYPE = 'springboot'
+  }
 
-    echo "✅ Loaded config for ${repoName}: ${target}"
+  // Assign DOCKER_PORT dynamically based on APP_TYPE
+  switch (env.APP_TYPE) {
+    case 'springboot':
+      env.DOCKER_PORT = env.IS_EUREKA == 'true' ? '8761' : '9004'
+      break
+    case 'nodejs':
+      env.DOCKER_PORT = '9005'
+      break
+    case 'nginx':
+      env.DOCKER_PORT = '9006'
+      break
+    default:
+      env.DOCKER_PORT = '9010' // default fallback port
+  }
+
+  echo "✅ Initialized Environment:"
+  echo "   - REPO_NAME      = ${env.REPO_NAME}"
+  echo "   - REPO_BRANCH    = ${env.REPO_BRANCH}"
+  echo "   - REPO_URL       = ${env.REPO_URL}"
+  echo "   - APP_TYPE       = ${env.APP_TYPE}"
+  echo "   - PROJECT_DIR    = ${env.PROJECT_DIR}"
+  echo "   - IMAGE_NAME     = ${env.IMAGE_NAME}"
+  echo "   - CONTAINER_NAME = ${env.CONTAINER_NAME}"
+  echo "   - DOCKER_PORT    = ${env.DOCKER_PORT}"
+  echo "   - IS_EUREKA      = ${env.IS_EUREKA}"
 }
