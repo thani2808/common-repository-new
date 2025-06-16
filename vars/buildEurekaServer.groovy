@@ -1,6 +1,9 @@
 def call(String projectDir = 'eureka-discovery-server') {
     dir(projectDir) {
         sh '''
+            echo "🔍 DEBUG: Current directory = $(pwd)"
+            ls -la
+
             echo "🧪 Building Eureka JAR..."
             mvn clean package -DskipTests
 
