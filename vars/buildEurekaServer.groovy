@@ -1,5 +1,5 @@
 def call() {
-    dir('common-repository-new/eureka-discovery-server') {
+    dir('eureka-discovery-server') {
         sh '''
             echo "🧪 Building Eureka JAR..."
             mvn clean package -DskipTests
