@@ -1,4 +1,4 @@
-def call(String projectDir) {
+def call(String projectDir = 'eureka-discovery-server') {
     dir(projectDir) {
         sh '''
             echo "🧪 Building Eureka JAR..."
