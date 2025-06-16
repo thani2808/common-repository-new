@@ -1,5 +1,5 @@
-def call() {
-    dir('common-repository-new/eureka-discovery-server') {
+def call(String projectDir) {
+    dir(projectDir) {
         sh '''
             echo "🧪 Building Eureka JAR..."
             mvn clean package -DskipTests
