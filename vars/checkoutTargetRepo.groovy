@@ -1,9 +1,11 @@
-def call(String repoUrl, String branch, String credentialsId) {
+def call(String repoUrl, String branch = 'main', String credentialsId) {
     dir('target-repo') {
         deleteDir()
         checkout([
             $class: 'GitSCM',
-            branches: [[name: branch]],
+            branches: [[name: "*/${branch}"]],
+            doGenerateSubmoduleConfigurations: false,
+            extensions: [],
             userRemoteConfigs: [[
                 url: repoUrl,
                 credentialsId: credentialsId,
