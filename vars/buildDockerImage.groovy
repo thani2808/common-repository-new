@@ -20,15 +20,16 @@ def call(Map args = [:]) {
         error "❌ Repo '${repoKey}' not found in common-repo-list.js"
     }
 
-    // Set environment variables
-    env.APP_TYPE       = repoConfig["app-type"]?.toLowerCase() ?: 'springboot'
+    // ✅ All assignments *after* repo validation
+    def appType = repoConfig["app-type"]?.toLowerCase() ?: 'springboot'
+    env.APP_TYPE       = appType
     env.PROJECT_DIR    = repoConfig["project_dir"] ?: '.'
     env.DOCKER_PORT    = repoConfig["host_port"]?.toString() ?: '8080'
     env.IMAGE_NAME     = "${repoKey.toLowerCase()}-image"
     env.CONTAINER_NAME = "${repoKey.toLowerCase()}-container"
     env.GIT_CREDENTIALS_ID = repoConfig["git_credentials_id"] ?: ''
     env.REPO_URL       = repoConfig["git-url"] ?: ''
-    env.IS_EUREKA      = (repoConfig["app-type"] == "eureka").toString()
+    env.IS_EUREKA      = (appType == "eureka").toString()
 
     echo "📦 Initialized Environment:"
     echo "   - REPO_NAME      = ${env.REPO_NAME}"
