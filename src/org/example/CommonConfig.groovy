@@ -1,10 +1,15 @@
 package org.example
 
-class CommonConfig implements Serializable {
+class CommonConfig {
+    String appType
+    String imageName
+    String containerName
+    String dockerPort
 
-    static Map getConfig(String repoName) {
-        def jsonText = libraryResource('common-repo-list.js')
-        def config = new groovy.json.JsonSlurper().parseText(jsonText)
-        return config.find { it['repo-name'] == repoName }
+    CommonConfig(Map config) {
+        this.appType = config['app-type']
+        this.imageName = "thanigai2808/${config['repo-name']}".toLowerCase()
+        this.containerName = "${config['repo-name']}-container".toLowerCase()
+        this.dockerPort = config['host_port'] ?: '9004'
     }
 }
