@@ -7,20 +7,20 @@ class CheckoutTargetRepoImpl implements Serializable {
         this.steps = steps
     }
 
-    void checkout(String repo, String branch) {
-        def gitUrl = "git@github.com:thani2808/${repo}.git"
-
-        steps.dir("target-repo") {
-            steps.checkout([
-                $class: 'GitSCM',
-                branches: [[name: "*/${branch}"]],
-                userRemoteConfigs: [[
-                    url: "git@github.com:thani2808/${repo}.git",
-                    credentialsId: steps.env.GIT_CREDENTIALS_ID
-                ]]
-            ])
-        }
-
-        steps.echo "✅ Checked out ${repo}@${branch}"
+    void checkout(String repoName, String branch = 'feature') {
+        steps.checkout([
+            $class: 'GitSCM',
+            branches: [[name: "*/${branch}"]],
+            doGenerateSubmoduleConfigurations: false,
+            extensions: [[
+                $class: 'RelativeTargetDirectory',
+                relativeTargetDir: "target-repo/${repoName}"  // 🔧 <- updated line
+            ]],
+            userRemoteConfigs: [[
+                url: "git@github.com:thani2808/${repoName}.git",
+                credentialsId: 'private-key-jenkins',
+                refspec: "+refs/heads/${branch}:refs/remotes/origin/${branch}"
+            ]]
+        ])
     }
 }

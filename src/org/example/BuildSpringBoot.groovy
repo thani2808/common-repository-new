@@ -1,13 +1,16 @@
 package org.example
 
-class BuildSpringBoot {
-    def script
-    BuildSpringBoot(script) {
-        this.script = script
+class BuildSpringBoot implements Serializable {
+    def steps
+
+    BuildSpringBoot(steps) {
+        this.steps = steps
     }
 
-    def build() {
-        script.echo "🧪 Building Spring Boot JAR..."
-        script.sh "cd target-repo/${script.env.PROJECT_DIR} && mvn clean package -DskipTests"
+    void build(String repoName) {
+        steps.echo "🧪 Building Spring Boot JAR..."
+        steps.dir("target-repo/${repoName}") {
+            steps.sh 'mvn clean package -DskipTests'
+        }
     }
 }
