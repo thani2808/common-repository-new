@@ -2,15 +2,16 @@ package org.example
 
 class BuildDockerImage implements Serializable {
     def steps
+
     BuildDockerImage(steps) {
         this.steps = steps
     }
 
-    void build(String imageName = null, String appType = null) {
+    void build(String imageName = null, String dockerfilePath = "Dockerfile") {
+        // Fallback to env if not passed explicitly
         imageName = imageName ?: steps.env.IMAGE_NAME
-        appType   = appType ?: steps.env.APP_TYPE
 
-        if (!imageName || !appType) {
+        if (!imageName) {
             def repoKey = steps.env.REPO_NAME
             if (!repoKey) {
                 steps.error "❌ Missing REPO_NAME for BuildDockerImage"
@@ -20,16 +21,18 @@ class BuildDockerImage implements Serializable {
             new org.example.SetEnvFromConfig(steps).set(repoKey, repoConfig)
 
             imageName = steps.env.IMAGE_NAME
-            appType   = steps.env.APP_TYPE
         }
 
-        def projectDir = steps.env.PROJECT_DIR ?: '.'
+        def projectDir = "target-repo/${steps.env.REPO_NAME}"
 
-        steps.echo "📦 Building Docker image '${imageName}' for appType=${appType}"
-        steps.dir("target-repo/${projectDir}") {
-            steps.sh "docker build -t ${imageName} ."
+        steps.echo "📦 Building Docker image '${imageName}' using Dockerfile at '${dockerfilePath}'"
+
+        steps.dir(projectDir) {
+            steps.sh """
+                docker build -t ${imageName}:latest -f ${dockerfilePath} .
+            """
         }
 
-        steps.echo "✅ Docker image built: ${imageName}"
+        steps.echo "✅ Docker image built: ${imageName}:latest"
     }
 }
