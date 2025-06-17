@@ -14,9 +14,6 @@ class CheckoutTargetRepoImpl implements Serializable {
             steps.checkout([
                 $class: 'GitSCM',
                 branches: [[name: "*/${branch}"]],
-                doGenerateSubmoduleConfigurations: false,
-                extensions: [[$class: 'RelativeTargetDirectory', relativeTargetDir: repo]],
-                submoduleCfg: [],
                 userRemoteConfigs: [[
                     url: gitUrl,
                     credentialsId: steps.env.GIT_CREDENTIALS_ID
@@ -24,6 +21,6 @@ class CheckoutTargetRepoImpl implements Serializable {
             ])
         }
 
-        steps.echo "✅ Checked out '${repo}' on branch '${branch}'"
+        steps.echo "✅ Checked out ${repo}@${branch}"
     }
 }
