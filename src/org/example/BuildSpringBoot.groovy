@@ -1,21 +1,13 @@
 package org.example
 
-class BuildSpringBoot implements Serializable {
-    def steps
-
-    BuildSpringBoot(steps) {
-        this.steps = steps
+class BuildSpringBoot {
+    def script
+    BuildSpringBoot(script) {
+        this.script = script
     }
 
-    void build() {
-        steps.dir('target-repo') {
-            def pomPath = steps.sh(script: "find . -name pom.xml | head -1", returnStdout: true).trim()
-            if (!pomPath) steps.error "❌ No pom.xml found."
-
-            def pomDir = pomPath.replaceFirst('/pom.xml$', '')
-            steps.dir(pomDir) {
-                steps.sh 'mvn clean package -DskipTests'
-            }
-        }
+    def build() {
+        script.echo "🧪 Building Spring Boot JAR..."
+        script.sh "cd target-repo/${script.env.PROJECT_DIR} && mvn clean package -DskipTests"
     }
 }
