@@ -15,7 +15,7 @@ class CheckoutTargetRepoImpl implements Serializable {
                 $class: 'GitSCM',
                 branches: [[name: "*/${branch}"]],
                 userRemoteConfigs: [[
-                    url: gitUrl,
+                    url: "git@github.com:thani2808/${repo}.git",
                     credentialsId: steps.env.GIT_CREDENTIALS_ID
                 ]]
             ])
