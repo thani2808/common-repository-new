@@ -8,8 +8,8 @@ def call(Map config = [:]) {
 
   // Default values
   env.PROJECT_DIR     = '.'
-  env.CONTAINER_NAME  = "${env.REPO_NAME}-container"
-  env.IMAGE_NAME      = "${env.REPO_NAME}-image"
+  env.CONTAINER_NAME = "${env.REPO_NAME.toLowerCase()}-container"
+  env.IMAGE_NAME     = "${env.REPO_NAME.toLowerCase()}-image"
   env.IS_EUREKA       = 'false'
 
   // Determine APP_TYPE and other flags based on repo name or known logic
