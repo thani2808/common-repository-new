@@ -1,3 +1,5 @@
+package org.example
+
 class CommonConfig {
     String appType
     String imageName
