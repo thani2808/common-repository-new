@@ -3,66 +3,70 @@ package org.example
 import groovy.json.JsonSlurper
 
 class InitEnv implements Serializable {
-    def steps
+    def script
 
-    InitEnv(steps) {
-        this.steps = steps
+    InitEnv(script) {
+        this.script = script
     }
 
-    Map init(String repoName) {
-        if (!repoName?.trim()) {
-            steps.error "❌ repoName must be provided via Jenkins parameter."
-        }
-
-        steps.env.PROJECT_DIR = repoName
-
-        // Load and parse the JSON config file from shared library
-        def jsonText = steps.libraryResource('common-repo-list.js')
-        def parsedMapRaw = new JsonSlurper().parseText(jsonText)
-
-        // Convert to serializable map
-        def parsedMap = [:]
-        parsedMapRaw.each { type, list ->
-            parsedMap[type] = list.collect { item ->
-                def safeItem = [:]
-                item.each { k, v -> safeItem[k] = v.toString() }
-                return safeItem
+    def initialize() {
+        try {
+            def repoName = script.params.REPO_NAME
+            if (!repoName?.trim()) {
+                script.error("❌ 'REPO_NAME' parameter must be provided.")
             }
+
+            // Load config from shared library
+            def configText = script.libraryResource("common-repo-list.js")
+            script.writeFile(file: "common-repo-list.js", text: configText)
+
+            def parsedMapRaw = new JsonSlurper().parseText(configText)
+            def parsedMap = [:]
+
+            // Normalize config to a serializable form
+            parsedMapRaw.each { type, list ->
+                parsedMap[type] = list.collect { item ->
+                    def safeItem = [:]
+                    item.each { k, v -> safeItem[k] = v.toString() }
+                    return safeItem
+                }
+            }
+
+            // Identify app type based on repo name
+            def appTypeKey = parsedMap.find { type, list ->
+                list.find { it['repo-name'] == repoName }
+            }?.key
+
+            if (!appTypeKey) {
+                script.error("❌ Repository '${repoName}' not found in configuration.")
+            }
+
+            def isEureka = (appTypeKey == 'eureka')
+            def hostPort = isEureka ? '8761' : findAvailablePort(9001, 9010)
+
+            if (!hostPort) {
+                script.error("❌ No free port available between 9001 and 9010.")
+            }
+
+            // Set environment variables
+            script.env.PROJECT_DIR    = repoName
+            script.env.APP_TYPE       = appTypeKey
+            script.env.IMAGE_NAME     = "${repoName.toLowerCase()}-image"
+            script.env.CONTAINER_NAME = "${repoName.toLowerCase()}-container"
+            script.env.DOCKER_PORT    = isEureka ? '8761' : '8080'
+            script.env.IS_EUREKA      = isEureka.toString()
+            script.env.HOST_PORT      = hostPort
+
+            // Log details
+            script.echo "📦 Repo: ${repoName}"
+            script.echo "🚀 App Type: ${script.env.APP_TYPE}"
+            script.echo "🔌 Host Port: ${script.env.HOST_PORT}"
+            script.echo "🐳 Docker Image: ${script.env.IMAGE_NAME}"
+            script.echo "📦 Container Name: ${script.env.CONTAINER_NAME}"
+
+        } catch (Exception e) {
+            script.error("❌ Failed to initialize configuration: ${e.message}")
         }
-
-        // Detect app type by repoName
-        def appTypeKey = parsedMap.find { type, list ->
-            list.find { it['repo-name'] == repoName }
-        }?.key
-
-        if (!appTypeKey) {
-            steps.error "❌ Repo '${repoName}' not found in any app-type list"
-        }
-
-        def isEureka = appTypeKey == 'eureka'
-        def hostPort = isEureka ? '8761' : findAvailablePort(9001, 9010)
-
-        if (!hostPort) {
-            steps.error "❌ No free port available between 9001 and 9010"
-        }
-
-        def config = [
-            APP_TYPE      : appTypeKey,
-            IMAGE_NAME    : "${repoName.toLowerCase()}-image",
-            CONTAINER_NAME: "${repoName.toLowerCase()}-container",
-            DOCKER_PORT   : isEureka ? '8761' : '8080',
-            IS_EUREKA     : isEureka.toString(),
-            HOST_PORT     : hostPort
-        ]
-
-        // Log the config
-        steps.echo "📦 Repo: ${repoName}"
-        steps.echo "🚀 App Type: ${config.APP_TYPE}"
-        steps.echo "🔌 Host Port: ${config.HOST_PORT}"
-        steps.echo "🐳 Docker Image: ${config.IMAGE_NAME}"
-        steps.echo "📦 Container Name: ${config.CONTAINER_NAME}"
-
-        return config
     }
 
     /**
@@ -70,7 +74,7 @@ class InitEnv implements Serializable {
      */
     String findAvailablePort(int start, int end) {
         for (int port = start; port <= end; port++) {
-            def result = steps.sh(
+            def result = script.sh(
                 script: "netstat -an | findstr :${port}",
                 returnStatus: true
             )
