@@ -13,7 +13,7 @@
       "project_dir": ".",
       "git-url": "git@github.com:thani2808/hello-world-springboot.git",
       "dockerhub_username": "thanigai2808",
-      "host_port": "9004",
+      "host_port": "9007",
       "git_credentials_id": "private-key-jenkins"
     }
   ],
