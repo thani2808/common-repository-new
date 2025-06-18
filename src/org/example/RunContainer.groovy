@@ -18,7 +18,11 @@ class RunContainer implements Serializable {
 
         // ✅ Build Docker image before running
         script.echo "🔧 Building Docker image: ${imageName}"
-        script.sh "docker build -t '${imageName}:latest' ."
+	script.sh """
+	    pushd ${script.pwd()}
+	    docker build -t '${imageName}:latest' .
+	    popd
+	"""
 
         // 🔁 Clean up existing container (if any)
         script.sh "docker stop '${containerName}' || true"
