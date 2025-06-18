@@ -9,7 +9,7 @@ class BuildDockerImage implements Serializable {
 
     /**
      * Builds a Docker image using the given image name and Dockerfile path.
-     * 
+     *
      * @param imageName Optional. Docker image name. Defaults to steps.env.IMAGE_NAME.
      * @param dockerfilePath Optional. Path to Dockerfile. Defaults to "Dockerfile".
      * @param appType Optional. Not used currently, but can be used for multi-app builds.
@@ -18,6 +18,7 @@ class BuildDockerImage implements Serializable {
         // Use IMAGE_NAME from environment if not explicitly provided
         imageName = imageName ?: steps.env.IMAGE_NAME
 
+        // If IMAGE_NAME is still not found, fall back using REPO_NAME
         if (!imageName) {
             def repoKey = steps.env.REPO_NAME
             if (!repoKey) {
@@ -30,22 +31,23 @@ class BuildDockerImage implements Serializable {
             imageName = steps.env.IMAGE_NAME
         }
 
-    def projectDir = "${steps.env.WORKSPACE}/target-repo/${steps.env.REPO_NAME}"
+        def projectDir = "${steps.env.WORKSPACE}/target-repo/${steps.env.REPO_NAME}"
 
-    steps.echo "📂 Switching to project directory: ${projectDir}"
-    steps.dir(projectDir) {
-        steps.sh "pwd && ls -l"
+        steps.echo "📂 Switching to project directory: ${projectDir}"
+        steps.dir(projectDir) {
+            steps.sh "pwd && ls -l"
 
-        // Check Dockerfile exists
-        steps.sh """
-            if [ ! -f "${dockerfilePath}" ]; then
-              echo '❌ Dockerfile not found at: ${dockerfilePath}'
-              exit 1
-            fi
-        """
+            // Validate Dockerfile exists
+            steps.sh """
+                if [ ! -f "${dockerfilePath}" ]; then
+                    echo '❌ Dockerfile not found at: ${dockerfilePath}'
+                    exit 1
+                fi
+            """
 
-        steps.echo "📦 Building Docker image '${imageName}' using Dockerfile at '${dockerfilePath}'"
-        steps.sh "docker build -t ${imageName}:latest -f ${dockerfilePath} ."
-        steps.echo "✅ Docker image built: ${imageName}:latest"
+            steps.echo "📦 Building Docker image '${imageName}' using Dockerfile at '${dockerfilePath}'"
+            steps.sh "docker build -t ${imageName}:latest -f ${dockerfilePath} ."
+            steps.echo "✅ Docker image built: ${imageName}:latest"
+        }
     }
 }
