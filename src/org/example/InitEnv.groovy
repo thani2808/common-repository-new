@@ -1,6 +1,7 @@
 package org.example
 
 import groovy.json.JsonSlurper
+import java.net.ServerSocket
 
 class InitEnv implements Serializable {
     def steps
@@ -12,41 +13,36 @@ class InitEnv implements Serializable {
     void init(String repoName) {
         steps.env.PROJECT_DIR = repoName
 
-        // Load and parse the JSON config
         def jsonText = steps.libraryResource('common-repo-list.js')
-        def repoConfigMap = new JsonSlurper().parseText(jsonText)
+        def parsedList = new JsonSlurper().parseText(jsonText)
+        def matchedConfig = parsedList.find { it['repo-name'] == repoName }
 
-        def appTypeKey = detectAppType(repoName, repoConfigMap)
-        def repoList = repoConfigMap[appTypeKey]
-        def repoEntry = repoList.find { it["repo-name"] == repoName }
-
-        if (!repoEntry) {
-            steps.error("❌ No matching repo '${repoName}' under app-type '${appTypeKey}'")
+        if (!matchedConfig) {
+            steps.error "❌ No config found for repo: ${repoName}"
         }
 
-        // Set environment variables (with normalization)
-        steps.env.APP_TYPE        = appTypeKey
-        steps.env.IMAGE_NAME      = (repoEntry["image-name"] ?: "${repoName}-image").toLowerCase()
-        steps.env.CONTAINER_NAME  = (repoEntry["container-name"] ?: "${repoName}-container").toLowerCase()
-        steps.env.HOST_PORT       = repoEntry["docker-port"]?.toString() ?: "8080"
-        steps.env.IS_EUREKA       = (repoEntry["is-eureka"]?.toString() ?: "false").toLowerCase()
+        steps.env.APP_TYPE       = matchedConfig['app-type'] ?: 'unknown'
+        steps.env.IMAGE_NAME     = matchedConfig['image-name'] ?: "${repoName.toLowerCase()}-image"
+        steps.env.CONTAINER_NAME = matchedConfig['container-name'] ?: "${repoName.toLowerCase()}-container"
+        steps.env.DOCKER_PORT    = matchedConfig['docker-port']?.toString() ?: "8080"
+        steps.env.IS_EUREKA      = (matchedConfig['is-eureka']?.toString() ?: "false").toLowerCase()
 
-        // Output details for confirmation
-        steps.echo "📦 Repo: ${repoName}"
-        steps.echo "🚀 App Type: ${steps.env.APP_TYPE}"
-        steps.echo "🔌 Host Port: ${steps.env.HOST_PORT}"
-        steps.echo "🐳 Docker Image: ${steps.env.IMAGE_NAME}"
-        steps.echo "📦 Container Name: ${steps.env.CONTAINER_NAME}"
+        // Dynamically find free port between 9001 and 9010
+        def freePort = findAvailablePort(9001, 9010)
+        if (!freePort) {
+            steps.error "❌ No free port available between 9001 and 9010"
+        }
+        steps.env.HOST_PORT = freePort.toString()
     }
 
-    private String detectAppType(String repoName, def configMap) {
-        for (def entry in configMap) {
-            def appType = entry.key
-            def repos = entry.value
-            if (repos.find { it["repo-name"] == repoName }) {
-                return appType
+    int findAvailablePort(int start, int end) {
+        for (int port = start; port <= end; port++) {
+            try {
+                new ServerSocket(port).withCloseable { return port }
+            } catch (IOException ignored) {
+                // Port is in use, try next
             }
         }
-        steps.error("❌ Unable to determine app type for repo: ${repoName}")
+        return -1
     }
 }
