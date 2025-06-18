@@ -24,16 +24,14 @@ class InitEnv implements Serializable {
             steps.error("❌ No matching repo '${repoName}' under app-type '${appTypeKey}'")
         }
 
-        // Store additional config in a class if needed (optional)
-        repoEntry["app-type"] = appTypeKey
+        // Set environment variables (with normalization)
+        steps.env.APP_TYPE        = appTypeKey
+        steps.env.IMAGE_NAME      = (repoEntry["image-name"] ?: "${repoName}-image").toLowerCase()
+        steps.env.CONTAINER_NAME  = (repoEntry["container-name"] ?: "${repoName}-container").toLowerCase()
+        steps.env.HOST_PORT       = repoEntry["docker-port"]?.toString() ?: "8080"
+        steps.env.IS_EUREKA       = (repoEntry["is-eureka"]?.toString() ?: "false").toLowerCase()
 
-        // Set environment variables
-        steps.env.APP_TYPE       = appTypeKey
-        steps.env.IMAGE_NAME     = repoEntry["image-name"] ?: "${repoName}-image"
-        steps.env.CONTAINER_NAME = repoEntry["container-name"] ?: "${repoName}-container"
-        steps.env.HOST_PORT      = repoEntry["docker-port"]?.toString() ?: "8080"
-        steps.env.IS_EUREKA      = (repoEntry["is-eureka"]?.toString() ?: "false").toLowerCase()
-
+        // Output details for confirmation
         steps.echo "📦 Repo: ${repoName}"
         steps.echo "🚀 App Type: ${steps.env.APP_TYPE}"
         steps.echo "🔌 Host Port: ${steps.env.HOST_PORT}"
