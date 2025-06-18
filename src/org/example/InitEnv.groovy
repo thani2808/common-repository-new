@@ -1,6 +1,8 @@
 package org.example
 
 import groovy.json.JsonSlurper
+import groovy.json.JsonBuilder
+import groovy.json.JsonSlurperClassic
 
 class InitEnv implements Serializable {
     def script
@@ -16,23 +18,17 @@ class InitEnv implements Serializable {
                 script.error("❌ 'REPO_NAME' parameter must be provided.")
             }
 
-            // Load config from shared library
+            // Load and write shared config
             def configText = script.libraryResource("common-repo-list.js")
             script.writeFile(file: "common-repo-list.js", text: configText)
 
+            // Safely normalize parsed JSON
             def parsedMapRaw = new JsonSlurper().parseText(configText)
-            def parsedMap = [:]
+            def parsedMap = new JsonSlurperClassic().parseText(
+                new JsonBuilder(parsedMapRaw).toPrettyString()
+            )
 
-            // Normalize config to a serializable form
-            parsedMapRaw.each { type, list ->
-                parsedMap[type] = list.collect { item ->
-                    def safeItem = [:]
-                    item.each { k, v -> safeItem[k] = v.toString() }
-                    return safeItem
-                }
-            }
-
-            // Identify app type based on repo name
+            // Identify app type by repo name
             def appTypeKey = parsedMap.find { type, list ->
                 list.find { it['repo-name'] == repoName }
             }?.key
@@ -57,7 +53,7 @@ class InitEnv implements Serializable {
             script.env.IS_EUREKA      = isEureka.toString()
             script.env.HOST_PORT      = hostPort
 
-            // Log details
+            // Log environment setup
             script.echo "📦 Repo: ${repoName}"
             script.echo "🚀 App Type: ${script.env.APP_TYPE}"
             script.echo "🔌 Host Port: ${script.env.HOST_PORT}"
@@ -65,7 +61,9 @@ class InitEnv implements Serializable {
             script.echo "📦 Container Name: ${script.env.CONTAINER_NAME}"
 
         } catch (Exception e) {
-            script.error("❌ Failed to initialize configuration: ${e.message}")
+            def msg = (e.message instanceof String) ? e.message : e.toString()
+            script.echo("❌ Exception type: ${e.getClass().getName()}")
+            script.error("❌ Failed to initialize configuration: ${msg}")
         }
     }
 
