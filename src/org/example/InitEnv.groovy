@@ -14,7 +14,7 @@ class InitEnv implements Serializable {
 
         // Load and parse the JSON config
         def jsonText = steps.libraryResource('common-repo-list.js')
-        def parsedMap = new JsonSlurper().parseText(jsonText)
+	def parsedMap = new JsonSlurper().parseText(jsonText) as Map
 
         // Detect app type (springboot, eureka, etc.)
         def appTypeKey = parsedMap.find { type, list ->
