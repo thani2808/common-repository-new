@@ -1,27 +1,33 @@
 package org.example
 
 class RunContainer implements Serializable {
-    def steps
+    def script
 
-    RunContainer(steps) {
-        this.steps = steps
+    RunContainer(script) {
+        this.script = script
     }
 
-    void run(String containerName, String imageName, String port, String appType = 'springboot') {
+    void run(String containerName, String imageName, String hostPort, String dockerPort, String appType = 'springboot') {
         containerName = containerName.toLowerCase()
         imageName = imageName.toLowerCase()
 
-        def portFlag = appType == 'springboot' ? "-p ${port}:${port}" : "-p ${port}:80"
-        def runArgs  = appType == 'springboot' ? "--server.port=${port} --server.address=0.0.0.0" : ""
+        script.echo "🐳 Running container '${containerName}' on port ${hostPort}"
 
-        steps.sh """
-            docker stop "${containerName}" || true
-            docker rm "${containerName}" || true
+        def portFlag = "-p ${hostPort}:${dockerPort}"
+        def runArgs  = (appType == 'springboot') ? "--server.port=${dockerPort} --server.address=0.0.0.0" : ""
 
-            docker run -d --name "${containerName}" --network spring-net ${portFlag} "${imageName}" ${runArgs}
+        script.sh "docker stop '${containerName}' || true"
+        script.sh "docker rm '${containerName}' || true"
 
-            docker ps -a
-            docker logs --tail 30 "${containerName}" || true
+        script.sh """
+            docker run -d --name '${containerName}' \
+              --network spring-net \
+              ${portFlag} \
+              '${imageName}:latest' ${runArgs}
         """
+
+        // Optional logging
+        script.sh "docker ps -a"
+        script.sh "docker logs --tail 30 '${containerName}' || true"
     }
 }
