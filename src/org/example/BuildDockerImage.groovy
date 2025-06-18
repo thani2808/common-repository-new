@@ -15,10 +15,9 @@ class BuildDockerImage implements Serializable {
      * @param appType Optional. Not used currently, but can be used for multi-app builds.
      */
     void build(String imageName = null, String dockerfilePath = "Dockerfile", String appType = null) {
-        // Use IMAGE_NAME from environment if not explicitly provided
+        // Resolve image name
         imageName = imageName ?: steps.env.IMAGE_NAME
 
-        // If IMAGE_NAME is still not found, fall back using REPO_NAME
         if (!imageName) {
             def repoKey = steps.env.REPO_NAME
             if (!repoKey) {
@@ -35,16 +34,30 @@ class BuildDockerImage implements Serializable {
 
         steps.echo "📂 Switching to project directory: ${projectDir}"
         steps.dir(projectDir) {
+            // Debug: show current directory structure
             steps.sh "pwd && ls -l"
 
-            // Validate Dockerfile exists
+            // 🔍 Validate Dockerfile exists
             steps.sh """
                 if [ ! -f "${dockerfilePath}" ]; then
-                    echo '❌ Dockerfile not found at: ${dockerfilePath}'
+                    echo "❌ Dockerfile not found at: ${dockerfilePath}"
                     exit 1
                 fi
             """
 
+            // 🔍 Validate pom.xml exists
+            steps.sh '''
+                if [ ! -f "pom.xml" ]; then
+                    echo "❌ pom.xml not found in current directory: $(pwd)"
+                    exit 1
+                fi
+            '''
+
+            // Build the application using Maven (optional, if needed before Docker)
+            steps.echo "🔧 Running Maven build"
+            steps.sh "mvn clean package -DskipTests"
+
+            // Build the Docker image
             steps.echo "📦 Building Docker image '${imageName}' using Dockerfile at '${dockerfilePath}'"
             steps.sh "docker build -t ${imageName}:latest -f ${dockerfilePath} ."
             steps.echo "✅ Docker image built: ${imageName}:latest"
