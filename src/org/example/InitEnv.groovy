@@ -1,7 +1,6 @@
 package org.example
 
 import groovy.json.JsonSlurper
-import java.net.ServerSocket
 
 class InitEnv implements Serializable {
     def steps
@@ -27,22 +26,34 @@ class InitEnv implements Serializable {
         steps.env.DOCKER_PORT    = matchedConfig['docker-port']?.toString() ?: "8080"
         steps.env.IS_EUREKA      = (matchedConfig['is-eureka']?.toString() ?: "false").toLowerCase()
 
-        // Dynamically find free port between 9001 and 9010
-        def freePort = findAvailablePort(9001, 9010)
-        if (!freePort) {
-            steps.error "❌ No free port available between 9001 and 9010"
+        // Assign HOST_PORT based on whether it's a Eureka server
+        if (steps.env.APP_TYPE == 'eureka') {
+            steps.env.HOST_PORT = "8761"
+        } else {
+            def freePort = findAvailablePort(9001, 9010)
+            if (freePort == null) {
+                steps.error "❌ No free port available between 9001 and 9010"
+            }
+            steps.env.HOST_PORT = freePort.toString()
         }
-        steps.env.HOST_PORT = freePort.toString()
+
+        steps.echo "📦 Repo: ${repoName}"
+        steps.echo "🚀 App Type: ${steps.env.APP_TYPE}"
+        steps.echo "🔌 Host Port: ${steps.env.HOST_PORT}"
+        steps.echo "🐳 Docker Image: ${steps.env.IMAGE_NAME}"
+        steps.echo "📦 Container Name: ${steps.env.CONTAINER_NAME}"
     }
 
-    int findAvailablePort(int start, int end) {
+    /**
+     * Returns the first available port between [start, end], or null if none found.
+     */
+    Integer findAvailablePort(int start, int end) {
         for (int port = start; port <= end; port++) {
-            try {
-                new ServerSocket(port).withCloseable { return port }
-            } catch (IOException ignored) {
-                // Port is in use, try next
+            def result = steps.sh(script: "netstat -an | findstr :${port}", returnStatus: true)
+            if (result != 0) {
+                return port
             }
         }
-        return -1
+        return null
     }
 }
