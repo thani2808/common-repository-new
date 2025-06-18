@@ -34,7 +34,7 @@ class BuildDockerImage implements Serializable {
 
         steps.echo "📂 Switching to project directory: ${projectDir}"
         steps.dir(projectDir) {
-            // Debug: show current directory structure
+            // Debug listing
             steps.sh "pwd && ls -l"
 
             // 🔍 Validate Dockerfile exists
@@ -53,11 +53,11 @@ class BuildDockerImage implements Serializable {
                 fi
             '''
 
-            // Build the application using Maven (optional, if needed before Docker)
+            // 🔧 Optional: Maven build
             steps.echo "🔧 Running Maven build"
             steps.sh "mvn clean package -DskipTests"
 
-            // Build the Docker image
+            // 🐳 Build Docker image
             steps.echo "📦 Building Docker image '${imageName}' using Dockerfile at '${dockerfilePath}'"
             steps.sh "docker build -t ${imageName}:latest -f ${dockerfilePath} ."
             steps.echo "✅ Docker image built: ${imageName}:latest"
