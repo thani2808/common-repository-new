@@ -18,12 +18,16 @@ class InitEnv implements Serializable {
 
         // Load and parse the JSON config file from shared library
         def jsonText = steps.libraryResource('common-repo-list.js')
-        def parsedMapRaw = new JsonSlurper().parseText(jsonText) as Map
+        def parsedMapRaw = new JsonSlurper().parseText(jsonText)
 
-        // Defensive copy: Convert LazyMap to Serializable HashMap
+        // Convert to fully serializable map
         def parsedMap = [:]
-        parsedMapRaw.each { key, value ->
-            parsedMap[key] = value.collect { it.clone() }
+        parsedMapRaw.each { type, list ->
+            parsedMap[type] = list.collect { item ->
+                def safeItem = [:]
+                item.each { k, v -> safeItem[k] = v.toString() }
+                return safeItem
+            }
         }
 
         // Detect app type
@@ -37,10 +41,6 @@ class InitEnv implements Serializable {
 
         def matchedConfig = parsedMap[appTypeKey].find { it['repo-name'] == repoName }
 
-        // Serialize LazyMap values
-        def safeMatchedConfig = [:]
-        matchedConfig.each { k, v -> safeMatchedConfig[k] = v.toString() }
-
         // Set environment variables
         steps.env.APP_TYPE       = appTypeKey
         steps.env.IMAGE_NAME     = "${repoName.toLowerCase()}-image"
@@ -48,7 +48,6 @@ class InitEnv implements Serializable {
         steps.env.DOCKER_PORT    = appTypeKey == 'eureka' ? '8761' : '8080'
         steps.env.IS_EUREKA      = (appTypeKey == 'eureka').toString()
 
-        // Assign host port
         if (steps.env.IS_EUREKA == 'true') {
             steps.env.HOST_PORT = "8761"
         } else {
