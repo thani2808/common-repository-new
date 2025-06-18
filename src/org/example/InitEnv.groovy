@@ -12,31 +12,45 @@ class InitEnv implements Serializable {
     void init(String repoName) {
         steps.env.PROJECT_DIR = repoName
 
+        // Load and parse the JSON config
         def jsonText = steps.libraryResource('common-repo-list.js')
-        def parsedList = new JsonSlurper().parseText(jsonText)
-        def matchedConfig = parsedList.find { it['repo-name'] == repoName }
+        def parsedMap = new JsonSlurper().parseText(jsonText)
+
+        // Detect app type (springboot, eureka, etc.)
+        def appTypeKey = parsedMap.find { type, list ->
+            list.find { it['repo-name'] == repoName }
+        }?.key
+
+        if (!appTypeKey) {
+            steps.error "❌ Repo '${repoName}' not found in any app-type list"
+        }
+
+        def repoList = parsedMap[appTypeKey]
+        def matchedConfig = repoList.find { it['repo-name'] == repoName }
 
         if (!matchedConfig) {
             steps.error "❌ No config found for repo: ${repoName}"
         }
 
-        steps.env.APP_TYPE       = matchedConfig['app-type'] ?: 'unknown'
-        steps.env.IMAGE_NAME     = matchedConfig['image-name'] ?: "${repoName.toLowerCase()}-image"
-        steps.env.CONTAINER_NAME = matchedConfig['container-name'] ?: "${repoName.toLowerCase()}-container"
-        steps.env.DOCKER_PORT    = matchedConfig['docker-port']?.toString() ?: "8080"
-        steps.env.IS_EUREKA      = (matchedConfig['is-eureka']?.toString() ?: "false").toLowerCase()
+        // Set standard environment variables
+        steps.env.APP_TYPE       = appTypeKey
+        steps.env.IMAGE_NAME     = "${repoName.toLowerCase()}-image"
+        steps.env.CONTAINER_NAME = "${repoName.toLowerCase()}-container"
+        steps.env.DOCKER_PORT    = appTypeKey == 'eureka' ? '8761' : '8080'
+        steps.env.IS_EUREKA      = (appTypeKey == 'eureka').toString()
 
-        // Assign HOST_PORT based on whether it's a Eureka server
-        if (steps.env.APP_TYPE == 'eureka') {
+        // Use static port for Eureka, dynamic port for others
+        if (steps.env.IS_EUREKA == 'true') {
             steps.env.HOST_PORT = "8761"
         } else {
             def freePort = findAvailablePort(9001, 9010)
-            if (freePort == null) {
+            if (!freePort) {
                 steps.error "❌ No free port available between 9001 and 9010"
             }
-            steps.env.HOST_PORT = freePort.toString()
+            steps.env.HOST_PORT = freePort
         }
 
+        // Log the environment setup
         steps.echo "📦 Repo: ${repoName}"
         steps.echo "🚀 App Type: ${steps.env.APP_TYPE}"
         steps.echo "🔌 Host Port: ${steps.env.HOST_PORT}"
@@ -47,11 +61,11 @@ class InitEnv implements Serializable {
     /**
      * Returns the first available port between [start, end], or null if none found.
      */
-    Integer findAvailablePort(int start, int end) {
+    String findAvailablePort(int start, int end) {
         for (int port = start; port <= end; port++) {
             def result = steps.sh(script: "netstat -an | findstr :${port}", returnStatus: true)
             if (result != 0) {
-                return port
+                return port.toString()
             }
         }
         return null
