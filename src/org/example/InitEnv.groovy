@@ -9,12 +9,22 @@ class InitEnv implements Serializable {
         this.steps = steps
     }
 
-    void init(String repoName) {
+    void init(String repoName = null) {
+        // 🔴 Derive repoName from Git if not provided
+        if (!repoName) {
+            repoName = steps.sh(
+                script: "basename `git rev-parse --show-toplevel`",
+                returnStdout: true
+            ).trim()
+            steps.echo "🔍 Auto-detected repoName: ${repoName}"
+        }
+
         steps.env.PROJECT_DIR = repoName
 
         // Load and parse the JSON config
         def jsonText = steps.libraryResource('common-repo-list.js')
         def parsedMapRaw = new JsonSlurper().parseText(jsonText) as Map
+
         // 🔴 Convert parsedMapRaw to Serializable Map<String, Object>
         def parsedMap = [:]
         parsedMapRaw.each { k, v -> parsedMap[k] = v.collect { it.clone() } }
