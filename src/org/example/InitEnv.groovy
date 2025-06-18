@@ -1,4 +1,3 @@
-// File: InitEnv.groovy
 package org.example
 
 import groovy.json.JsonSlurper
@@ -11,7 +10,7 @@ class InitEnv implements Serializable {
     }
 
     void init(String repoName) {
-        🔴 if (!repoName?.trim()) {
+        if (!repoName?.trim()) {
             steps.error "❌ repoName must be provided via Jenkins parameter."
         }
 
@@ -21,7 +20,7 @@ class InitEnv implements Serializable {
         def jsonText = steps.libraryResource('common-repo-list.js')
         def parsedMapRaw = new JsonSlurper().parseText(jsonText) as Map
 
-        // 🔴 Defensive copy: Convert LazyMap to Serializable HashMap
+        // Defensive copy: Convert LazyMap to Serializable HashMap
         def parsedMap = [:]
         parsedMapRaw.each { key, value ->
             parsedMap[key] = value.collect { it.clone() }
@@ -32,13 +31,13 @@ class InitEnv implements Serializable {
             list.find { it['repo-name'] == repoName }
         }?.key
 
-        🔴 if (!appTypeKey) {
+        if (!appTypeKey) {
             steps.error "❌ Repo '${repoName}' not found in any app-type list"
         }
 
         def matchedConfig = parsedMap[appTypeKey].find { it['repo-name'] == repoName }
 
-        // 🔴 Serialize LazyMap values
+        // Serialize LazyMap values
         def safeMatchedConfig = [:]
         matchedConfig.each { k, v -> safeMatchedConfig[k] = v.toString() }
 
@@ -54,7 +53,7 @@ class InitEnv implements Serializable {
             steps.env.HOST_PORT = "8761"
         } else {
             def freePort = findAvailablePort(9001, 9010)
-            🔴 if (!freePort) {
+            if (!freePort) {
                 steps.error "❌ No free port available between 9001 and 9010"
             }
             steps.env.HOST_PORT = freePort
