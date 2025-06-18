@@ -10,23 +10,45 @@ class InitEnv implements Serializable {
     }
 
     void init(String repoName) {
-        // Always set PROJECT_DIR
         steps.env.PROJECT_DIR = repoName
 
-        // Load and parse the repo config list
+        // Load and parse the JSON config
         def jsonText = steps.libraryResource('common-repo-list.js')
-        def parsedList = new JsonSlurper().parseText(jsonText)
-        def matchedConfig = parsedList.find { it['repo-name'] == repoName }
+        def repoConfigMap = new JsonSlurper().parseText(jsonText)
 
-        if (!matchedConfig) {
-            steps.error "❌ No config found for repo: ${repoName}"
+        def appTypeKey = detectAppType(repoName, repoConfigMap)
+        def repoList = repoConfigMap[appTypeKey]
+        def repoEntry = repoList.find { it["repo-name"] == repoName }
+
+        if (!repoEntry) {
+            steps.error("❌ No matching repo '${repoName}' under app-type '${appTypeKey}'")
         }
 
-        // Dynamically set env vars from config
-        steps.env.APP_TYPE       = matchedConfig['app-type'] ?: 'unknown'
-        steps.env.IMAGE_NAME     = matchedConfig['image-name'] ?: "${repoName.toLowerCase()}-image"
-        steps.env.CONTAINER_NAME = matchedConfig['container-name'] ?: "${repoName.toLowerCase()}-container"
-        steps.env.DOCKER_PORT    = matchedConfig['docker-port']?.toString() ?: "8080"
-        steps.env.IS_EUREKA      = (matchedConfig['is-eureka']?.toString() ?: "false").toLowerCase()
+        // Store additional config in a class if needed (optional)
+        repoEntry["app-type"] = appTypeKey
+
+        // Set environment variables
+        steps.env.APP_TYPE       = appTypeKey
+        steps.env.IMAGE_NAME     = repoEntry["image-name"] ?: "${repoName}-image"
+        steps.env.CONTAINER_NAME = repoEntry["container-name"] ?: "${repoName}-container"
+        steps.env.HOST_PORT      = repoEntry["docker-port"]?.toString() ?: "8080"
+        steps.env.IS_EUREKA      = (repoEntry["is-eureka"]?.toString() ?: "false").toLowerCase()
+
+        steps.echo "📦 Repo: ${repoName}"
+        steps.echo "🚀 App Type: ${steps.env.APP_TYPE}"
+        steps.echo "🔌 Host Port: ${steps.env.HOST_PORT}"
+        steps.echo "🐳 Docker Image: ${steps.env.IMAGE_NAME}"
+        steps.echo "📦 Container Name: ${steps.env.CONTAINER_NAME}"
+    }
+
+    private String detectAppType(String repoName, def configMap) {
+        for (def entry in configMap) {
+            def appType = entry.key
+            def repos = entry.value
+            if (repos.find { it["repo-name"] == repoName }) {
+                return appType
+            }
+        }
+        steps.error("❌ Unable to determine app type for repo: ${repoName}")
     }
 }
