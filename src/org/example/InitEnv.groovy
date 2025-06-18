@@ -1,3 +1,4 @@
+// File: InitEnv.groovy
 package org.example
 
 import groovy.json.JsonSlurper
@@ -9,27 +10,24 @@ class InitEnv implements Serializable {
         this.steps = steps
     }
 
-    void init(String repoName = null) {
-        // 🔴 Derive repoName from Git if not provided
+    void init(String repoName) {
         if (!repoName) {
-            repoName = steps.sh(
-                script: "basename `git rev-parse --show-toplevel`",
-                returnStdout: true
-            ).trim()
-            steps.echo "🔍 Auto-detected repoName: ${repoName}"
+            steps.error "❌ repoName must be provided."
         }
 
         steps.env.PROJECT_DIR = repoName
 
-        // Load and parse the JSON config
+        // Load and parse the JSON config file from shared library
         def jsonText = steps.libraryResource('common-repo-list.js')
         def parsedMapRaw = new JsonSlurper().parseText(jsonText) as Map
 
-        // 🔴 Convert parsedMapRaw to Serializable Map<String, Object>
+        // Defensive copy: Convert LazyMap to Serializable HashMap
         def parsedMap = [:]
-        parsedMapRaw.each { k, v -> parsedMap[k] = v.collect { it.clone() } }
+        parsedMapRaw.each { key, value ->
+            parsedMap[key] = value.collect { it.clone() }
+        }
 
-        // Detect app type (springboot, eureka, etc.)
+        // Detect app type
         def appTypeKey = parsedMap.find { type, list ->
             list.find { it['repo-name'] == repoName }
         }?.key
@@ -38,25 +36,19 @@ class InitEnv implements Serializable {
             steps.error "❌ Repo '${repoName}' not found in any app-type list"
         }
 
-        def repoList = parsedMap[appTypeKey]
-        def matchedConfig = repoList.find { it['repo-name'] == repoName }
+        def matchedConfig = parsedMap[appTypeKey].find { it['repo-name'] == repoName }
 
-        if (!matchedConfig) {
-            steps.error "❌ No config found for repo: ${repoName}"
-        }
-
-        // 🔴 Defensive copy to avoid LazyMap serialization
+        // Serialize LazyMap values
         def safeMatchedConfig = [:]
         matchedConfig.each { k, v -> safeMatchedConfig[k] = v.toString() }
 
-        // Set standard environment variables
+        // Set environment variables
         steps.env.APP_TYPE       = appTypeKey
         steps.env.IMAGE_NAME     = "${repoName.toLowerCase()}-image"
         steps.env.CONTAINER_NAME = "${repoName.toLowerCase()}-container"
         steps.env.DOCKER_PORT    = appTypeKey == 'eureka' ? '8761' : '8080'
         steps.env.IS_EUREKA      = (appTypeKey == 'eureka').toString()
 
-        // Use static port for Eureka, dynamic port for others
         if (steps.env.IS_EUREKA == 'true') {
             steps.env.HOST_PORT = "8761"
         } else {
@@ -67,7 +59,7 @@ class InitEnv implements Serializable {
             steps.env.HOST_PORT = freePort
         }
 
-        // Log the environment setup
+        // Logging setup
         steps.echo "📦 Repo: ${repoName}"
         steps.echo "🚀 App Type: ${steps.env.APP_TYPE}"
         steps.echo "🔌 Host Port: ${steps.env.HOST_PORT}"
@@ -76,11 +68,14 @@ class InitEnv implements Serializable {
     }
 
     /**
-     * Returns the first available port between [start, end], or null if none found.
+     * Find the first available port in the given range.
      */
     String findAvailablePort(int start, int end) {
         for (int port = start; port <= end; port++) {
-            def result = steps.sh(script: "netstat -an | findstr :${port}", returnStatus: true)
+            def result = steps.sh(
+                script: "netstat -an | findstr :${port}",
+                returnStatus: true
+            )
             if (result != 0) {
                 return port.toString()
             }
