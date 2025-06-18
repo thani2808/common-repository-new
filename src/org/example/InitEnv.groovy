@@ -14,7 +14,10 @@ class InitEnv implements Serializable {
 
         // Load and parse the JSON config
         def jsonText = steps.libraryResource('common-repo-list.js')
-	def parsedMap = new JsonSlurper().parseText(jsonText) as Map
+        def parsedMapRaw = new JsonSlurper().parseText(jsonText) as Map
+        // 🔴 Convert parsedMapRaw to Serializable Map<String, Object>
+        def parsedMap = [:]
+        parsedMapRaw.each { k, v -> parsedMap[k] = v.collect { it.clone() } }
 
         // Detect app type (springboot, eureka, etc.)
         def appTypeKey = parsedMap.find { type, list ->
@@ -31,6 +34,10 @@ class InitEnv implements Serializable {
         if (!matchedConfig) {
             steps.error "❌ No config found for repo: ${repoName}"
         }
+
+        // 🔴 Defensive copy to avoid LazyMap serialization
+        def safeMatchedConfig = [:]
+        matchedConfig.each { k, v -> safeMatchedConfig[k] = v.toString() }
 
         // Set standard environment variables
         steps.env.APP_TYPE       = appTypeKey
