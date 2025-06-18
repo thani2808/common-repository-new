@@ -30,16 +30,22 @@ class BuildDockerImage implements Serializable {
             imageName = steps.env.IMAGE_NAME
         }
 
-        def projectDir = "target-repo/${steps.env.REPO_NAME}"
+    def projectDir = "${steps.env.WORKSPACE}/target-repo/${steps.env.REPO_NAME}"
+
+    steps.echo "📂 Switching to project directory: ${projectDir}"
+    steps.dir(projectDir) {
+        steps.sh "pwd && ls -l"
+
+        // Check Dockerfile exists
+        steps.sh """
+            if [ ! -f "${dockerfilePath}" ]; then
+              echo '❌ Dockerfile not found at: ${dockerfilePath}'
+              exit 1
+            fi
+        """
 
         steps.echo "📦 Building Docker image '${imageName}' using Dockerfile at '${dockerfilePath}'"
-
-        steps.dir(projectDir) {
-            steps.sh """
-                docker build -t ${imageName}:latest -f ${dockerfilePath} .
-            """
-        }
-
+        steps.sh "docker build -t ${imageName}:latest -f ${dockerfilePath} ."
         steps.echo "✅ Docker image built: ${imageName}:latest"
     }
 }
