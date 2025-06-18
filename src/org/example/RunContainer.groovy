@@ -16,13 +16,9 @@ class RunContainer implements Serializable {
         def portFlag = "-p ${hostPort}:${dockerPort}"
         def runArgs  = (appType == 'springboot') ? "--server.port=${dockerPort} --server.address=0.0.0.0" : ""
 
-        // ✅ Build Docker image before running
+        // ✅ Build Docker image before running (no pushd/popd needed)
         script.echo "🔧 Building Docker image: ${imageName}"
-	script.sh """
-	    pushd ${script.pwd()}
-	    docker build -t '${imageName}:latest' .
-	    popd
-	"""
+        script.sh "docker build -t '${imageName}:latest' ."
 
         // 🔁 Clean up existing container (if any)
         script.sh "docker stop '${containerName}' || true"
