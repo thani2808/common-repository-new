@@ -7,34 +7,44 @@ class ApplicationBuilder implements Serializable {
         this.steps = steps
     }
 
-    def build(String repo, String branch) {
+    void build(String repo, String branch) {
         steps.echo "⚙️ build(repo, branch) invoked"
-        buildApp("springboot", repo, repo.toLowerCase())
+        def appType = steps.env.APP_TYPE?.toLowerCase() ?: 'springboot'
+        def imageName = repo.toLowerCase()
+        buildApp(appType, repo, imageName)
     }
 
-    def buildApp(String appType, String repoName, String imageName) {
-        def path = "target-repo/${repoName}"
-        steps.dir(path) {
-            switch (appType.toLowerCase()) {
+    void buildApp(String appType, String repoName, String imageName) {
+        def basePath = "target-repo/${repoName}"
+
+        steps.dir(basePath) {
+            switch (appType) {
                 case 'springboot':
                     def matches = steps.findFiles(glob: '**/pom.xml')
-                    if (!matches) steps.error("❌ pom.xml not found in ${path}")
-                    steps.dir(matches[0].path.replaceAll('\\\\', '/').replaceAll('/[^/]+$', '')) {
+                    if (!matches || matches.isEmpty()) {
+                        steps.error("❌ pom.xml not found in ${basePath}")
+                    }
+
+                    def pomDir = matches[0].path.replaceAll('\\\\', '/').replaceAll('/[^/]+$', '')
+                    steps.dir(pomDir) {
                         steps.sh 'mvn clean package -DskipTests'
                         checkDockerfileExists()
                         steps.sh "docker build -t ${imageName}:latest ."
                     }
                     break
+
                 case 'nodejs':
                     steps.sh 'npm install'
                     steps.sh 'npm run build || echo "⚠️ No build step defined."'
                     checkDockerfileExists()
                     steps.sh "docker build -t ${imageName}:latest ."
                     break
+
                 case 'nginx':
                 case 'php':
                     steps.echo "ℹ️ No build required for ${appType}"
                     break
+
                 default:
                     steps.error("❌ Unsupported app type: ${appType}")
             }
@@ -42,7 +52,8 @@ class ApplicationBuilder implements Serializable {
     }
 
     private void checkDockerfileExists() {
-        if (!steps.findFiles(glob: 'Dockerfile')) {
+        def dockerfile = steps.findFiles(glob: 'Dockerfile')
+        if (!dockerfile || dockerfile.isEmpty()) {
             steps.error("❌ Dockerfile missing.")
         }
     }
