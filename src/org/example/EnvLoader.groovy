@@ -11,18 +11,17 @@ class EnvLoader implements Serializable {
 
     /**
      * Loads environment variables based on REPO_NAME using common-repo-list.js
-     * from the shared library resources.
      *
      * @return Map of resolved environment variables
      */
     def load() {
-        steps.echo "🔧 Loading environment variables from EnvLoader..."
+        steps.echo "🔧 [EnvLoader] Starting to load environment variables..."
 
         def repoListText = steps.libraryResource('common-repo-list.js')
         def repoList = new JsonSlurperClassic().parseText(repoListText)
 
-        def currentRepo = steps.params.REPO_NAME ?: steps.env.JOB_NAME.tokenize('/').last()
-        steps.echo "🔍 Resolved REPO_NAME: ${currentRepo}"
+        def currentRepo = steps.params.REPO_NAME ?: steps.env.REPO_NAME ?: steps.env.JOB_NAME.tokenize('/').last()
+        steps.echo "🔍 [EnvLoader] Resolved REPO_NAME: '${currentRepo}'"
 
         def result = [:]
         def found = false
@@ -39,8 +38,8 @@ class EnvLoader implements Serializable {
                     result.GIT_CREDENTIALS_ID = repo['git_credentials_id']
                     result.GIT_URL = repo['git-url']
 
-                    steps.echo "✅ Repo '${currentRepo}' found. Loaded environment variables:"
-                    result.each { k, v -> steps.echo "➡️ ${k}: ${v}" }
+                    steps.echo "✅ [EnvLoader] Match found for repo '${currentRepo}'. Environment variables loaded:"
+                    result.each { k, v -> steps.echo "➡️ ${k} = ${v}" }
 
                     found = true
                     return
@@ -49,12 +48,20 @@ class EnvLoader implements Serializable {
         }
 
         if (!found) {
-            steps.echo "⚠️ Available repos in common-repo-list.js:"
+            steps.echo "⚠️ [EnvLoader] Repo '${currentRepo}' not found. Showing known repos:"
             repoList.each { type, repos ->
                 repos.each { r -> steps.echo "- ${r['repo-name']} (type: ${type})" }
             }
-            steps.error "❌ Repo '${currentRepo}' not found in common-repo-list.js"
+            steps.error "❌ [EnvLoader] Repo '${currentRepo}' not found in common-repo-list.js"
         }
+
+        // ✅ Fail-fast debug check
+        if (result == null || result.isEmpty()) {
+            steps.error "❌ [EnvLoader] Loaded env map is null or empty! This should never happen."
+        }
+
+        // ✅ Final DEBUG dump
+        steps.echo "🔎 [EnvLoader] Final envVars map: ${result.inspect()}"
 
         return result
     }
