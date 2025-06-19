@@ -18,18 +18,15 @@ class EnvLoader implements Serializable {
     def load() {
         steps.echo "🔧 Loading environment variables from EnvLoader..."
 
-        // Load and parse the repo config file
         def repoListText = steps.libraryResource('common-repo-list.js')
         def repoList = new JsonSlurperClassic().parseText(repoListText)
 
-        // Determine the current repository name from parameter or job name
         def currentRepo = steps.params.REPO_NAME ?: steps.env.JOB_NAME.tokenize('/').last()
         steps.echo "🔍 Resolved REPO_NAME: ${currentRepo}"
 
         def result = [:]
         def found = false
 
-        // Search for repo config by app type
         repoList.each { appType, repos ->
             repos.each { repo ->
                 if (repo['repo-name'] == currentRepo) {
@@ -37,7 +34,7 @@ class EnvLoader implements Serializable {
                     result.IMAGE_NAME = "${repo['dockerhub_username']}/${repo['repo-name']}"
                     result.CONTAINER_NAME = repo['repo-name']
                     result.HOST_PORT = repo['host_port']
-                    result.DOCKER_PORT = '8080' // Default internal port
+                    result.DOCKER_PORT = '8080'
                     result.DOCKERHUB_USERNAME = repo['dockerhub_username']
                     result.GIT_CREDENTIALS_ID = repo['git_credentials_id']
                     result.GIT_URL = repo['git-url']
@@ -51,7 +48,6 @@ class EnvLoader implements Serializable {
             }
         }
 
-        // Repo not found
         if (!found) {
             steps.echo "⚠️ Available repos in common-repo-list.js:"
             repoList.each { type, repos ->
