@@ -21,7 +21,7 @@ class ApplicationBuilder implements Serializable {
             switch (appType) {
                 case 'springboot':
                     def matches = steps.findFiles(glob: '**/pom.xml')
-                    if (!matches || matches.isEmpty()) {
+		    if (!matches || matches.length == 0) {
                         steps.error("❌ pom.xml not found in ${basePath}")
                     }
 
