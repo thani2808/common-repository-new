@@ -15,7 +15,9 @@ class ApplicationBuilder implements Serializable {
                 script.echo "🔧 Detected Spring Boot application"
                 script.dir(repoPath) {
                     def matches = script.findFiles(glob: '**/pom.xml')
-                    if (matches.length == 0) script.error("❌ No pom.xml found in ${repoPath}")
+                    if (matches.length == 0) {
+                        script.error("❌ No pom.xml found in ${repoPath}")
+                    }
                     def pomPath = matches[0].path.replaceAll('\\\\', '/')
                     def pomDir = pomPath.contains('/') ? pomPath.substring(0, pomPath.lastIndexOf('/')) : '.'
                     script.dir(pomDir) {
