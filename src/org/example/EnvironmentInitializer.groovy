@@ -1,5 +1,3 @@
-package org.example
-
 class EnvironmentInitializer implements Serializable {
     def steps
 
@@ -7,54 +5,53 @@ class EnvironmentInitializer implements Serializable {
         this.steps = steps
     }
 
-    List<String> initialize() {
-        steps.echo "🛠️ [EnvironmentInitializer] initialize() called"
-
-        def envVars = new EnvLoader(steps).load()
+    def initialize() {
         def currentRepo = steps.env.REPO_NAME?.trim()
-        boolean found = false
-
-        if (!envVars || envVars.isEmpty()) {
-            steps.error("❌ EnvLoader returned null or empty map! Check 'common-repo-list.js'.")
-        }
+        steps.echo "📦 [EnvInitializer] Matching against REPO_NAME = '${currentRepo}'"
 
         def result = [:]
-        def repoList = envVars["repoList"]
+        def found = false
+
+        def repoList = new CommonConfig(steps).getRepoList()
 
         repoList.each { appType, repos ->
             repos.each { repo ->
-                steps.echo "🔍 Checking repo: ${repo['repo-name']} vs ${currentRepo}"
-                if (repo['repo-name'] == currentRepo) {
-                    result.APP_TYPE          = appType
-                    result.IMAGE_NAME        = "${repo['dockerhub_username']}/${repo['repo-name']}"
-                    result.CONTAINER_NAME    = repo['repo-name']
-                    result.HOST_PORT         = repo['host_port']
-                    result.DOCKER_PORT       = '8080'
-                    result.DOCKERHUB_USERNAME= repo['dockerhub_username']
-                    result.GIT_CREDENTIALS_ID= repo['git_credentials_id']
-                    result.GIT_URL           = repo['git-url']
+                def repoName = repo['repo-name']?.toString()?.trim()
+                steps.echo "🔍 Comparing repo-name '${repoName}' with currentRepo '${currentRepo}'"
+                steps.echo "⚙️ Type check: repo-name = ${repoName?.getClass()?.getName()}, currentRepo = ${currentRepo?.getClass()?.getName()}"
+
+                if (repoName == currentRepo) {
+                    result.APP_TYPE           = appType
+                    result.IMAGE_NAME         = "${repo['dockerhub_username']}/${repoName}"
+                    result.CONTAINER_NAME     = repoName
+                    result.HOST_PORT          = repo['host_port']
+                    result.DOCKER_PORT        = '8080'
+                    result.DOCKERHUB_USERNAME = repo['dockerhub_username']
+                    result.GIT_CREDENTIALS_ID = repo['git_credentials_id']
+                    result.GIT_URL            = repo['git-url']
 
                     steps.echo "✅ [EnvLoader] Match found for repo '${currentRepo}'. Environment variables loaded:"
                     result.each { k, v -> steps.echo "➡️ ${k} = ${v}" }
 
                     found = true
-                    return
+                    return // exit inner loop
                 }
             }
         }
 
         if (!found) {
-            steps.echo "❌ No environment matched for repo '${currentRepo}' in repo list"
-            steps.error("❌ Cannot proceed without matching repo environment.")
+            steps.echo "📜 [EnvLoader] Listing all repo-names in repoList for debugging:"
+            repoList.each { appType, repos ->
+                repos.each { repo ->
+                    def rn = repo['repo-name']
+                    steps.echo "📝 repo-name: '${rn}' | Type: ${rn?.getClass()?.getName()}"
+                }
+            }
+
+            steps.error("❌ No environment matched for repo '${currentRepo}' in repo list")
         }
 
-        // Build envList from result map
-        def envList = []
-        result.each { k, v -> envList << "${k}=${v}" }
-
-        steps.echo "✅ [EnvironmentInitializer] Final envList to return:"
-        envList.each { steps.echo "➡️ ${it}" }
-
-        return envList
+        // Return as a list of env key=value pairs
+        return result.collect { key, value -> "${key}=${value}" }
     }
 }
