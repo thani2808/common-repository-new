@@ -1,54 +1,65 @@
 package org.example
 
 class RunContainer implements Serializable {
-    def script
+    def steps
 
-    RunContainer(script) {
-        this.script = script
+    RunContainer(steps) {
+        this.steps = steps
     }
 
     void run(String containerName, String imageName, String hostPort, String dockerPort, String appType = 'springboot') {
+        // Validate inputs
+        if (!appType) {
+            steps.error("❌ 'appType' is null or not set. Cannot continue.")
+        }
+
+        if (!containerName || !imageName || !hostPort || !dockerPort) {
+            steps.error("❌ One or more required arguments are missing: containerName, imageName, hostPort, dockerPort")
+        }
+
+        def lowerAppType = appType.toLowerCase()
         containerName = containerName.toLowerCase()
         imageName = imageName.toLowerCase()
 
-        script.echo "🐳 Running container '${containerName}' on port ${hostPort}"
+        steps.echo "🐳 Running container '${containerName}' as type '${lowerAppType}'"
 
-        def portFlag = "-p ${hostPort}:${dockerPort}"
-        def runArgs  = (appType == 'springboot') ? "--server.port=${dockerPort} --server.address=0.0.0.0" : ""
-
-        // 🔍 Find Dockerfile in the repo
-        script.echo "🔍 Searching for Dockerfile..."
-        def dockerfilePath = script.sh(
+        // Search for Dockerfile
+        steps.echo "🔍 Searching for Dockerfile..."
+        def dockerfilePath = steps.sh(
             script: "find . -name Dockerfile -print -quit",
             returnStdout: true
         ).trim()
 
         if (!dockerfilePath) {
-            script.error "❌ Dockerfile not found in repository"
+            steps.error("❌ Dockerfile not found in repository")
         }
 
         def contextDir = dockerfilePath.replaceAll('/Dockerfile$', '').replace('\\', '/')
-        script.echo "📁 Dockerfile found in: ${dockerfilePath}"
-        script.echo "📦 Docker build context: ${contextDir}"
+        steps.echo "📁 Dockerfile found: ${dockerfilePath}"
+        steps.echo "📦 Docker build context: ${contextDir}"
 
-        // 🔧 Build the Docker image
-        script.echo "🔧 Building Docker image: ${imageName}"
-        script.sh "docker build -t '${imageName}:latest' \"${contextDir}\""
+        // Stop & remove existing container
+        steps.sh "docker stop '${containerName}' || true"
+        steps.sh "docker rm '${containerName}' || true"
 
-        // 🔁 Stop & remove any existing container
-        script.sh "docker stop '${containerName}' || true"
-        script.sh "docker rm '${containerName}' || true"
+        // Build Docker image
+        steps.echo "🔧 Building Docker image: ${imageName}:latest"
+        steps.sh "docker build -t '${imageName}:latest' '${contextDir}'"
 
-        // 🚀 Run the new container
-        script.sh """
+        // Run container with network and port mapping
+        def portMapping = "-p ${hostPort}:${dockerPort}"
+        def runArgs = (lowerAppType == 'springboot') ? "--server.port=${dockerPort} --server.address=0.0.0.0" : ""
+
+        steps.echo "🚀 Running container: ${containerName}"
+        steps.sh """
             docker run -d --name '${containerName}' \
               --network spring-net \
-              ${portFlag} \
+              ${portMapping} \
               '${imageName}:latest' ${runArgs}
         """
 
-        // 📋 Optional: Show running containers and recent logs
-        script.sh "docker ps -a"
-        script.sh "docker logs --tail 30 '${containerName}' || true"
+        // Optional: Docker diagnostics
+        steps.sh "docker ps -a"
+        steps.sh "docker logs --tail 30 '${containerName}' || true"
     }
 }
