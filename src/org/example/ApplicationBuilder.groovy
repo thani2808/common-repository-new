@@ -25,23 +25,25 @@ class ApplicationBuilder implements Serializable {
                         steps.error("❌ pom.xml not found")
                     }
 
-                    def pomPath = matches[0].path.replaceAll('\\\\', '/')
-                    def baseDir = pomPath.replaceAll('/pom.xml$', '')
+                    // Get directory containing the first matched pom.xml
+                    def pomFilePath = matches[0].path.replaceAll('\\\\', '/')
+                    def pomDir = pomFilePath.substring(0, pomFilePath.lastIndexOf('/'))
 
-                    steps.echo "📂 Using build context: ${baseDir}"
-                    steps.dir(baseDir) {
-                        steps.sh 'mvn clean install -DskipTests'
-                        steps.sh 'mvn clean package -DskipTests'
+                    steps.echo "📂 Using build context: ${pomDir}"
+
+                    steps.dir(pomDir) {
+                        steps.bat 'mvn clean install -DskipTests'
+                        steps.bat 'mvn package -DskipTests'
                         checkDockerfileExists()
-                        steps.sh "docker build -t ${imageName}:latest ."
+                        steps.bat "docker build -t ${imageName}:latest ."
                     }
                     break
 
                 case 'nodejs':
-                    steps.sh 'npm install'
-                    steps.sh 'npm run build || echo "⚠️ No build step defined."'
+                    steps.bat 'npm install'
+                    steps.bat 'npm run build || echo "⚠️ No build step defined."'
                     checkDockerfileExists()
-                    steps.sh "docker build -t ${imageName}:latest ."
+                    steps.bat "docker build -t ${imageName}:latest ."
                     break
 
                 case 'nginx':
