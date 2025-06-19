@@ -11,10 +11,9 @@ class CheckoutTargetRepoImpl implements Serializable {
         steps.checkout([
             $class: 'GitSCM',
             branches: [[name: "*/${branch}"]],
-            doGenerateSubmoduleConfigurations: false,
             extensions: [[
                 $class: 'RelativeTargetDirectory',
-                relativeTargetDir: "target-repo/${repoName}"  // 🔧 <- updated line
+                relativeTargetDir: "target-repo/${repoName}"
             ]],
             userRemoteConfigs: [[
                 url: "git@github.com:thani2808/${repoName}.git",
