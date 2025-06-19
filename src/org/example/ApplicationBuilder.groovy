@@ -25,6 +25,11 @@ class ApplicationBuilder implements Serializable {
                         steps.error("❌ pom.xml not found in ${basePath}")
                     }
 
+		    def baseDir = matches[0].path.replaceAll('/pom.xml$', '')
+		    steps.dir(baseDir) {
+			steps.sh "mvn clean install -DskipTests"
+		    }
+
                     def pomDir = matches[0].path.replaceAll('\\\\', '/').replaceAll('/[^/]+$', '')
                     steps.dir(pomDir) {
                         steps.sh 'mvn clean package -DskipTests'
