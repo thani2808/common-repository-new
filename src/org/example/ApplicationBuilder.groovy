@@ -25,9 +25,9 @@ class ApplicationBuilder implements Serializable {
                         steps.error("❌ pom.xml not found")
                     }
 
-                    // Get directory containing the first matched pom.xml
-                    def pomFilePath = matches[0].path.replaceAll('\\\\', '/')
-                    def pomDir = pomFilePath.substring(0, pomFilePath.lastIndexOf('/'))
+                    // Normalize and extract directory from pom.xml
+                    def pomPath = matches[0].path.replaceAll('\\\\', '/')
+                    def pomDir = pomPath.contains('/') ? pomPath.substring(0, pomPath.lastIndexOf('/')) : '.'
 
                     steps.echo "📂 Using build context: ${pomDir}"
 
