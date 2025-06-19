@@ -21,17 +21,16 @@ class ApplicationBuilder implements Serializable {
             switch (appType) {
                 case 'springboot':
                     def matches = steps.findFiles(glob: '**/pom.xml')
-		    if (!matches || matches.length == 0) {
-                        steps.error("❌ pom.xml not found in ${basePath}")
+                    if (!matches || matches.length == 0) {
+                        steps.error("❌ pom.xml not found")
                     }
 
-		    def baseDir = matches[0].path.replaceAll('/pom.xml$', '')
-		    steps.dir(baseDir) {
-			steps.sh "mvn clean install -DskipTests"
-		    }
+                    def pomPath = matches[0].path.replaceAll('\\\\', '/')
+                    def baseDir = pomPath.replaceAll('/pom.xml$', '')
 
-                    def pomDir = matches[0].path.replaceAll('\\\\', '/').replaceAll('/[^/]+$', '')
-                    steps.dir(pomDir) {
+                    steps.echo "📂 Using build context: ${baseDir}"
+                    steps.dir(baseDir) {
+                        steps.sh 'mvn clean install -DskipTests'
                         steps.sh 'mvn clean package -DskipTests'
                         checkDockerfileExists()
                         steps.sh "docker build -t ${imageName}:latest ."
@@ -58,7 +57,7 @@ class ApplicationBuilder implements Serializable {
 
     private void checkDockerfileExists() {
         def dockerfile = steps.findFiles(glob: 'Dockerfile')
-        if (!dockerfile || dockerfile.isEmpty()) {
+        if (!dockerfile || dockerfile.length == 0) {
             steps.error("❌ Dockerfile missing.")
         }
     }
