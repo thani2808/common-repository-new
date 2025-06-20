@@ -20,23 +20,6 @@ class ApplicationBuilder implements Serializable {
             switch (appType) {
                 case 'springboot':
                     buildSpringBootApp(imageName)
-private void buildSpringBootApp(String imageName) {
-        def matches = steps.findFiles(glob: '**/pom.xml')
-        if (!matches || matches.length == 0) {
-            steps.error("❌ pom.xml not found in project.")
-        }
-
-        def pomPath = matches[0].path.replaceAll('\\\\', '/')
-        def pomDir = pomPath.contains('/') ? pomPath.substring(0, pomPath.lastIndexOf('/')) : '.'
-        steps.echo "📂 Spring Boot context: ${pomDir}"
-
-        steps.dir(pomDir) {
-            runCommand('mvn clean install -DskipTests')
-            runCommand('mvn package -DskipTests')
-            checkDockerfileExists()
-            runCommand("docker build -t ${imageName}:latest .")
-        }
-    }														  
                     break
                 case 'nodejs':
                     buildNodeApp(imageName)
@@ -85,14 +68,14 @@ private void buildSpringBootApp(String imageName) {
 
     private void buildPythonApp(String imageName) {
         steps.echo "🐍 Python app build"
-        runCommand('pip install -r requirements.txt || echo "⚠️ No requirements.txt or install failed."')
+        runCommand('pip install -r requirements.txt || echo \"⚠️ No requirements.txt or install failed.\"')
         checkDockerfileExists()
         runCommand("docker build -t ${imageName}:latest .")
     }
 
     private void buildRubyApp(String imageName) {
         steps.echo "💎 Ruby app build"
-        runCommand('bundle install || echo "⚠️ bundle install failed or Gemfile missing."')
+        runCommand('bundle install || echo \"⚠️ bundle install failed or Gemfile missing.\"')
         checkDockerfileExists()
         runCommand("docker build -t ${imageName}:latest .")
     }
