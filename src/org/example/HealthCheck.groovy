@@ -8,16 +8,10 @@ class HealthCheck implements Serializable {
     }
 
     void check(String port, String containerName, String appType = 'springboot') {
-        def actualPort = port
         def endpoint = getHealthEndpoint(appType)
+        def url = "http://localhost:${port}${endpoint}"
 
-        // Override port for known fixed port apps like nginx
-        if (appType?.toLowerCase() == 'nginx') {
-            actualPort = '80'
-        }
-
-        def url = "http://localhost:${actualPort}${endpoint}"
-        steps.echo "⏳ Starting health check for '${appType}' on ${url}"
+        steps.echo "⏳ Starting health check for '${appType}' app on ${url}"
 
         steps.sh "sleep 15"
 
@@ -33,7 +27,7 @@ class HealthCheck implements Serializable {
             done
 
             echo "❌ Health check failed for ${containerName} (${appType})"
-            docker logs ${containerName} || echo 'No logs found.'
+            docker logs ${containerName} || true
             exit 1
         """
     }
