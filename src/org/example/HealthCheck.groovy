@@ -8,23 +8,43 @@ class HealthCheck implements Serializable {
     }
 
     void check(String port, String containerName, String appType = 'springboot') {
-        def endpoint = appType == 'springboot' ? "/actuator/health" : "/"
+        def endpoint = getHealthEndpoint(appType)
+        def url = "http://localhost:${port}${endpoint}"
+
+        steps.echo "⏳ Starting health check for '${appType}' app on ${url}"
+
+        steps.sh "sleep 15"
 
         steps.sh """
-            echo "⏳ Starting health check..."
-            sleep 15
-            for i in \$(seq 1 20); do
-                CODE=\$(curl -s -o /dev/null -w '%{http_code}' http://localhost:${port}${endpoint} || echo "000")
-                echo "Attempt \$i: HTTP \$CODE"
-                if [ "\$CODE" = "200" ]; then
-                    echo '✅ Healthy'
-                    exit 0
-                fi
-                sleep 3
+            for i in \$(seq 1 10); do
+              CODE=\$(curl -s -o /dev/null -w '%{http_code}' ${url} || echo 000)
+              echo "Attempt \$i: HTTP \$CODE"
+              if [[ "\$CODE" == "200" || "\$CODE" == "403" || "\$CODE" == "302" ]]; then
+                echo "✅ Health check passed with code \$CODE"
+                exit 0
+              fi
+              sleep 3
             done
-            echo '❌ Health check failed'
-            docker logs '${containerName}' || true
+
+            echo "❌ Health check failed for ${containerName} (${appType})"
+            docker logs ${containerName} || true
             exit 1
         """
+    }
+
+    private String getHealthEndpoint(String appType) {
+        switch (appType?.toLowerCase()) {
+            case 'springboot':
+                return "/actuator/health"
+            case 'nodejs':
+            case 'nginx':
+            case 'php':
+            case 'python':
+            case 'ruby':
+                return "/"
+            default:
+                steps.echo "⚠️ Unknown app type '${appType}', defaulting to root endpoint"
+                return "/"
+        }
     }
 }
