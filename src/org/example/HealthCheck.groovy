@@ -1,3 +1,5 @@
+package org.example
+
 class HealthCheck implements Serializable {
     def steps
 
@@ -11,17 +13,18 @@ class HealthCheck implements Serializable {
 
         steps.echo "⏳ Starting health check for '${appType}' app on ${url}"
 
+        // Optional startup delay
         steps.sh "sleep 15"
 
         steps.sh """
             for i in \$(seq 1 10); do
-              CODE=\$(curl -s -o /dev/null -w '%{http_code}' ${url} || echo 000)
-              echo "Attempt \$i: HTTP \$CODE"
-              if [[ "\$CODE" == "200" || "\$CODE" == "403" || "\$CODE" == "302" ]]; then
-                echo "✅ Health check passed with code \$CODE"
-                exit 0
-              fi
-              sleep 3
+                CODE=\$(curl -s -o /dev/null -w '%{http_code}' ${url} || echo 000)
+                echo "Attempt \$i: HTTP \$CODE"
+                if [[ "\$CODE" == "200" || "\$CODE" == "403" || "\$CODE" == "302" ]]; then
+                    echo "✅ Health check passed with code \$CODE"
+                    exit 0
+                fi
+                sleep 3
             done
 
             echo "❌ Health check failed for ${containerName} (${appType})"
