@@ -22,7 +22,9 @@ class InitEnv implements Serializable {
             if (!appTypeKey) script.error("❌ Repository '${repoName}' not found.")
 
             def isEureka = (appTypeKey == 'eureka')
-            def hostPort = isEureka ? '8761' : findAvailablePort(9001, 9010)
+            def isNginx  = (appTypeKey == 'nginx')
+
+            def hostPort = isEureka ? '8761' : isNginx ? '8081' : findAvailablePort(9001, 9010)
             if (!hostPort) script.error("❌ No available port found between 9001–9010.")
 
             script.env.APP_TYPE       = appTypeKey
