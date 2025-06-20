@@ -1,5 +1,3 @@
-package org.example
-
 class HealthCheck implements Serializable {
     def steps
 
