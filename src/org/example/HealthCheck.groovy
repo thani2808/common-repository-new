@@ -12,8 +12,6 @@ class HealthCheck implements Serializable {
         def url = "http://localhost:${port}${endpoint}"
 
         steps.echo "⏳ Starting health check for '${appType}' app on ${url}"
-
-        // Optional startup delay
         steps.sh "sleep 15"
 
         steps.sh """
