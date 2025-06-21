@@ -6,16 +6,9 @@ APP_TYPE=$3
 
 # Determine health check endpoint
 case "$APP_TYPE" in
-  springboot)
-    ENDPOINT="/actuator/health"
-    ;;
-  nodejs|nginx|php|python|ruby)
-    ENDPOINT="/"
-    ;;
-  *)
-    echo "⚠️ Unknown app type '${APP_TYPE}', defaulting to '/'"
-    ENDPOINT="/"
-    ;;
+  springboot) ENDPOINT="/actuator/health" ;;
+  nodejs|nginx|php|python|ruby) ENDPOINT="/" ;;
+  *) echo "⚠️ Unknown app type '${APP_TYPE}', defaulting to '/'"; ENDPOINT="/" ;;
 esac
 
 URL="http://localhost:${PORT}${ENDPOINT}"
@@ -24,9 +17,9 @@ echo "⏳ Health check for '${APP_TYPE}' on ${URL}"
 sleep 15
 
 for i in $(seq 1 10); do
-  CODE=$(curl -s -o /dev/null -w '%{http_code}' "$URL" || echo 000)
+  CODE=$(curl -s -o /dev/null -w "%{http_code}" "$URL")
   echo "Attempt $i: HTTP $CODE"
-  
+
   if [[ "$CODE" == "200" || "$CODE" == "403" || "$CODE" == "302" ]]; then
     echo "✅ Health check passed"
     exit 0
