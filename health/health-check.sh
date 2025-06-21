@@ -4,27 +4,22 @@ PORT=$1
 CONTAINER_NAME=$2
 APP_TYPE=$3
 
-# Determine health check endpoint
-case "$APP_TYPE" in
-  springboot) ENDPOINT="/actuator/health" ;;
-  nodejs|nginx|php|python|ruby) ENDPOINT="/" ;;
-  *) echo "⚠️ Unknown app type '${APP_TYPE}', defaulting to '/'"; ENDPOINT="/" ;;
-esac
+ENDPOINT="/"
+[[ "$APP_TYPE" == "springboot" ]] && ENDPOINT="/actuator/health"
 
-URL="http://localhost:${PORT}${ENDPOINT}"
+IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $CONTAINER_NAME)
+URL="http://${IP}:${PORT}${ENDPOINT}"
 
-echo "⏳ Health check for '${APP_TYPE}' on ${URL}"
-sleep 15
+echo "⏳ Checking ${APP_TYPE} app on ${URL}"
+sleep 10
 
-for i in $(seq 1 10); do
+for i in {1..10}; do
   CODE=$(curl -s -o /dev/null -w "%{http_code}" "$URL")
   echo "Attempt $i: HTTP $CODE"
-
   if [[ "$CODE" == "200" || "$CODE" == "403" || "$CODE" == "302" ]]; then
     echo "✅ Health check passed"
     exit 0
   fi
-
   sleep 3
 done
 
