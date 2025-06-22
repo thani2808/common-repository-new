@@ -18,16 +18,31 @@ class RunContainer implements Serializable {
 
         if (!contextDir) steps.error("❌ Dockerfile not found.")
 
+        // Stop and remove any existing container
         steps.sh "docker stop '${containerName}' || true"
         steps.sh "docker rm '${containerName}' || true"
+
+        // Build the Docker image
         steps.sh "docker build -t '${imageName}:latest' '${contextDir}'"
 
-        def runArgs = appType.toLowerCase() == 'springboot' ? "--server.port=${dockerPort} --server.address=0.0.0.0" : ""
-        steps.sh """
-            docker run -d --name '${containerName}' \
-              --network spring-net \
-              -p ${hostPort}:${dockerPort} \
-              '${imageName}:latest' ${runArgs}
-        """
+        // Run the container based on app type
+        if (appType.toLowerCase() == 'nginx') {
+            steps.sh """
+                docker run -d --name '${containerName}' \
+                  --network spring-net \
+                  -p ${hostPort}:80 \
+                  '${imageName}:latest'
+            """
+        } else if (appType.toLowerCase() == 'springboot') {
+            steps.sh """
+                docker run -d --name '${containerName}' \
+                  --network spring-net \
+                  -p ${hostPort}:8080 \
+                  '${imageName}:latest' \
+                  --server.port=${dockerPort} --server.address=0.0.0.0
+            """
+        } else {
+            steps.error("❌ Unsupported appType '${appType}'. Supported: springboot, nginx")
+        }
     }
 }
