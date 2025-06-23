@@ -17,9 +17,18 @@ class ApplicationBuilder implements Serializable {
         this.steps = steps
     }
 
-    // ========== InitEnv Logic ==========
     def initialize() {
         try {
+            // === 🐛 Startup Debug Info ===
+            steps.echo "🚀 Jenkins Debug Info"
+            steps.echo "🔢 Jenkins Build Number: ${steps.env.BUILD_NUMBER}"
+            steps.echo "🧭 Jenkins Version: ${steps.env.JENKINS_VERSION ?: 'Unavailable (may need global env setting)'}"
+            steps.echo "🖥️ Agent Name: ${steps.env.NODE_NAME}"
+            steps.echo "🏷️ Node Labels: ${steps.env.NODE_LABELS}"
+            steps.echo "🔗 Git URL: ${steps.env.GIT_URL ?: 'Not available in env'}"
+            steps.echo "📌 Git Commit: ${steps.env.GIT_COMMIT ?: 'Not available in env'}"
+            steps.echo "📁 Workspace: ${steps.env.WORKSPACE}"
+
             repoName = steps.params.REPO_NAME
             if (!repoName?.trim()) steps.error("❌ 'REPO_NAME' must be provided.")
 
@@ -34,8 +43,23 @@ class ApplicationBuilder implements Serializable {
             def isEureka = (appType == 'eureka')
             def isNginx  = (appType == 'nginx')
 
-            hostPort = isEureka ? '8761' : isNginx ? '8081' : findAvailablePort(9001, 9010)
-            if (!hostPort) steps.error("❌ No available port found between 9001–9010.")
+            if (isEureka) {
+                hostPort = '8761'
+            } else if (isNginx) {
+                hostPort = findAvailablePort(8081, 9000)
+            } else {
+                hostPort = findAvailablePort(9001, 9010)
+            }
+
+            if (!hostPort) steps.error("❌ No available port found for appType: ${appType}")
+
+            def portMessage = isEureka
+                ? "🔌 Reserved static port 8761 for Eureka Server"
+                : isNginx
+                    ? "🌐 Assigned available port ${hostPort} for Nginx reverse proxy"
+                    : "🧪 Assigned available port ${hostPort} for ${appType} application"
+
+            steps.echo(portMessage)
 
             imageName     = "${repoName.toLowerCase()}-image"
             containerName = "${repoName.toLowerCase()}-container"
@@ -51,6 +75,26 @@ class ApplicationBuilder implements Serializable {
             steps.env.HOST_PORT      = hostPort
 
             steps.echo "✅ Environment initialized for '${repoName}'"
+            steps.echo "📡 HOST_PORT=${hostPort} will map to internal DOCKER_PORT=${dockerPort}"
+
+            // === 📄 Build Report File ===
+            def reportText = """
+==== Build Report ====
+🔢 Jenkins Build Number: ${steps.env.BUILD_NUMBER}
+🧭 Jenkins Version: ${steps.env.JENKINS_VERSION ?: 'Unavailable'}
+🖥️ Agent: ${steps.env.NODE_NAME}
+🏷️ Labels: ${steps.env.NODE_LABELS}
+🔗 Git URL: ${steps.env.GIT_URL ?: 'N/A'}
+📌 Git Commit: ${steps.env.GIT_COMMIT ?: 'N/A'}
+📁 Workspace: ${steps.env.WORKSPACE}
+📦 Repo: ${repoName}
+🛠️ App Type: ${appType}
+📡 Host Port: ${hostPort}
+🔒 Docker Port: ${dockerPort}
+${portMessage}
+=======================
+"""
+            steps.writeFile file: 'build-report.txt', text: reportText
 
         } catch (Exception e) {
             steps.error("❌ InitEnv failed: ${e.message ?: e.toString()}")
