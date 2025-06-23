@@ -5,7 +5,7 @@ import groovy.json.JsonSlurper
 class ApplicationBuilder implements Serializable {
     def steps
 
-    // ✅ Common variables
+    // Common variables
     String repoName
     String appType
     String imageName
@@ -31,12 +31,12 @@ class ApplicationBuilder implements Serializable {
             repoName = steps.params.REPO_NAME?.trim()
             if (!repoName) steps.error("❌ 'REPO_NAME' must be provided")
 
-            def configText = steps.libraryResource("common-repo-list.js")
-            steps.writeFile file: "common-repo-list.js", text: configText
+            def configText = steps.libraryResource('common-repo-list.js')
+            steps.writeFile file: 'common-repo-list.js', text: configText
 
             def parsedMap = parseAndNormalizeJson(configText)
             def appTypeKey = findAppType(repoName, parsedMap)
-            if (!appTypeKey) steps.error("❌ App type for repo '${repoName}' not found.")
+            if (!appTypeKey) steps.error("❌ App type for '${repoName}' not found")
 
             appType = appTypeKey.toLowerCase()
             def isEureka = (appType == 'eureka')
@@ -46,7 +46,7 @@ class ApplicationBuilder implements Serializable {
                        isNginx  ? findAvailablePort(8081, 9000) :
                                   findAvailablePort(9001, 9010)
 
-            if (!hostPort) steps.error("❌ No free port found for app type '${appType}'")
+            if (!hostPort) steps.error("❌ No free port found for '${appType}'")
 
             imageName     = "${repoName.toLowerCase()}-image"
             containerName = "${repoName.toLowerCase()}-container"
@@ -63,16 +63,15 @@ class ApplicationBuilder implements Serializable {
 
             def portMsg = isEureka ? "🔌 Static port 8761 for Eureka" :
                           isNginx  ? "🌐 Port ${hostPort} for Nginx" :
-                                     "🧪 Port ${hostPort} for app"
+                                     "🧪 Port ${hostPort} for ${appType}"
 
             steps.echo portMsg
             steps.echo "✅ Env ready for '${repoName}'"
             steps.echo "📡 HOST_PORT=${hostPort} maps to DOCKER_PORT=${dockerPort}"
 
-            // Optional: Write to build report
-            steps.writeFile file: "build-report.txt", text: """
+            def report = """
 ==== Build Report ====
-🔢 Build: ${steps.env.BUILD_NUMBER}
+🔢 Build Number: ${steps.env.BUILD_NUMBER}
 🧭 Jenkins: ${steps.env.JENKINS_VERSION ?: 'N/A'}
 🖥️ Agent: ${steps.env.NODE_NAME}
 🏷️ Labels: ${steps.env.NODE_LABELS}
@@ -84,10 +83,12 @@ class ApplicationBuilder implements Serializable {
 📡 Host Port: ${hostPort}
 🔒 Docker Port: ${dockerPort}
 ${portMsg}
-=======================
+======================
 """
+            steps.writeFile file: "build-report.txt", text: report
+
         } catch (Exception e) {
-            steps.error("❌ Initialization failed: ${e.message}")
+            steps.error("❌ initialize() failed: ${e.message}")
         }
     }
 
@@ -112,8 +113,7 @@ ${portMsg}
     }
 
     void buildApp(String appType, String repoName, String imageName) {
-        def path = "target-repo/${repoName}"
-        steps.dir(path) {
+        steps.dir("target-repo/${repoName}") {
             switch (appType) {
                 case 'springboot': buildSpringBoot(imageName); break
                 case 'nodejs':     buildNode(imageName); break
@@ -163,22 +163,11 @@ ${portMsg}
         runCommand("docker build -t ${imageName}:latest .")
     }
 
-    private void runCommand(String cmd) {
-        if (steps.isUnix()) steps.sh cmd else steps.bat cmd
-    }
-
-    private void verifyDockerfile() {
-        if (!steps.findFiles(glob: 'Dockerfile')) {
-            steps.error("❌ Dockerfile missing")
-        }
-    }
-
     void runContainer() {
         steps.sh "docker stop '${containerName}' || true"
         steps.sh "docker rm '${containerName}' || true"
 
         def base = steps.sh(script: "find . -name Dockerfile -print -quit", returnStdout: true).trim()?.replaceAll('/Dockerfile$', '')
-
         if (!base) steps.error("❌ Dockerfile not found in tree")
 
         steps.sh "docker build -t '${imageName}:latest' '${base}'"
@@ -198,6 +187,7 @@ ${portMsg}
     void healthCheck() {
         def endpoint = getHealthEndpoint(appType)
         def url = "http://localhost:${hostPort}${endpoint}"
+
         steps.echo "🩺 Checking ${url}"
         steps.sh "sleep 10"
 
@@ -217,6 +207,8 @@ ${portMsg}
         """
     }
 
+    // === Utility & Helpers ===
+
     private String getHealthEndpoint(String type) {
         switch (type?.toLowerCase()) {
             case 'springboot': return "/actuator/health"
@@ -228,6 +220,16 @@ ${portMsg}
             default:
                 steps.echo "⚠️ Unknown app type '${type}', using root"
                 return "/"
+        }
+    }
+
+    private void runCommand(String cmd) {
+        steps.isUnix() ? steps.sh(cmd) : steps.bat(cmd)
+    }
+
+    private void verifyDockerfile() {
+        if (!steps.findFiles(glob: 'Dockerfile')) {
+            steps.error("❌ Dockerfile missing")
         }
     }
 
