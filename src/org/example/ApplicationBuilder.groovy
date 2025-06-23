@@ -5,7 +5,7 @@ import groovy.json.JsonSlurper
 class ApplicationBuilder implements Serializable {
     def steps
 
-    // ✅ Reusable common variables
+    // ✅ Common variables
     String repoName
     String appType
     String imageName
@@ -19,47 +19,34 @@ class ApplicationBuilder implements Serializable {
 
     def initialize() {
         try {
-            // === 🐛 Startup Debug Info ===
-            steps.echo "\uD83D\uDE80 Jenkins Debug Info"
-            steps.echo "\uD83D\uDD67 Jenkins Build Number: ${steps.env.BUILD_NUMBER}"
-            steps.echo "\uD83E\uDDF1 Jenkins Version: ${steps.env.JENKINS_VERSION ?: 'Unavailable (may need global env setting)'}"
-            steps.echo "\uD83D\uDCA5 Agent Name: ${steps.env.NODE_NAME}"
-            steps.echo "\uD83C\uDFF7️ Node Labels: ${steps.env.NODE_LABELS}"
-            steps.echo "\uD83D\uDD17 Git URL: ${steps.env.GIT_URL ?: 'Not available in env'}"
-            steps.echo "\uD83D\uDCCC Git Commit: ${steps.env.GIT_COMMIT ?: 'Not available in env'}"
-            steps.echo "\uD83D\uDCC1 Workspace: ${steps.env.WORKSPACE}"
+            steps.echo "🚀 Jenkins Debug Info"
+            steps.echo "🔢 Build: ${steps.env.BUILD_NUMBER}"
+            steps.echo "🧭 Jenkins: ${steps.env.JENKINS_VERSION ?: 'N/A'}"
+            steps.echo "🖥️ Agent: ${steps.env.NODE_NAME}"
+            steps.echo "🏷️ Labels: ${steps.env.NODE_LABELS}"
+            steps.echo "🔗 Git URL: ${steps.env.GIT_URL ?: 'N/A'}"
+            steps.echo "📌 Commit: ${steps.env.GIT_COMMIT ?: 'N/A'}"
+            steps.echo "📁 Workspace: ${steps.env.WORKSPACE}"
 
-            repoName = steps.params.REPO_NAME
-            if (!repoName?.trim()) steps.error("\u274C 'REPO_NAME' must be provided.")
+            repoName = steps.params.REPO_NAME?.trim()
+            if (!repoName) steps.error("❌ 'REPO_NAME' must be provided")
 
             def configText = steps.libraryResource("common-repo-list.js")
-            steps.writeFile(file: "common-repo-list.js", text: configText)
+            steps.writeFile file: "common-repo-list.js", text: configText
 
             def parsedMap = parseAndNormalizeJson(configText)
             def appTypeKey = findAppType(repoName, parsedMap)
-            if (!appTypeKey) steps.error("\u274C Repository '${repoName}' not found.")
+            if (!appTypeKey) steps.error("❌ App type for repo '${repoName}' not found.")
 
             appType = appTypeKey.toLowerCase()
             def isEureka = (appType == 'eureka')
             def isNginx  = (appType == 'nginx')
 
-            if (isEureka) {
-                hostPort = '8761'
-            } else if (isNginx) {
-                hostPort = findAvailablePort(8081, 9000)
-            } else {
-                hostPort = findAvailablePort(9001, 9010)
-            }
+            hostPort = isEureka ? '8761' :
+                       isNginx  ? findAvailablePort(8081, 9000) :
+                                  findAvailablePort(9001, 9010)
 
-            if (!hostPort) steps.error("\u274C No available port found for appType: ${appType}")
-
-            def portMessage = isEureka
-                ? "\uD83D\uDD0C Reserved static port 8761 for Eureka Server"
-                : isNginx
-                    ? "\uD83C\uDF10 Assigned available port ${hostPort} for Nginx reverse proxy"
-                    : "\uD83E\uDDEA Assigned available port ${hostPort} for ${appType} application"
-
-            steps.echo(portMessage)
+            if (!hostPort) steps.error("❌ No free port found for app type '${appType}'")
 
             imageName     = "${repoName.toLowerCase()}-image"
             containerName = "${repoName.toLowerCase()}-container"
@@ -71,69 +58,40 @@ class ApplicationBuilder implements Serializable {
             steps.env.IMAGE_NAME     = imageName
             steps.env.CONTAINER_NAME = containerName
             steps.env.DOCKER_PORT    = dockerPort
-            steps.env.IS_EUREKA      = isEureka.toString()
             steps.env.HOST_PORT      = hostPort
+            steps.env.IS_EUREKA      = isEureka.toString()
 
-            steps.echo "\u2705 Environment initialized for '${repoName}'"
-            steps.echo "\uD83D\uDCE1 HOST_PORT=${hostPort} will map to internal DOCKER_PORT=${dockerPort}"
+            def portMsg = isEureka ? "🔌 Static port 8761 for Eureka" :
+                          isNginx  ? "🌐 Port ${hostPort} for Nginx" :
+                                     "🧪 Port ${hostPort} for app"
 
-            // === \uD83D\uDCC4 Build Report File ===
-            def reportText = """
+            steps.echo portMsg
+            steps.echo "✅ Env ready for '${repoName}'"
+            steps.echo "📡 HOST_PORT=${hostPort} maps to DOCKER_PORT=${dockerPort}"
+
+            // Optional: Write to build report
+            steps.writeFile file: "build-report.txt", text: """
 ==== Build Report ====
-\uD83D\uDD67 Jenkins Build Number: ${steps.env.BUILD_NUMBER}
-\uD83E\uDDF1 Jenkins Version: ${steps.env.JENKINS_VERSION ?: 'Unavailable'}
-\uD83D\uDCA5 Agent: ${steps.env.NODE_NAME}
-\uD83C\uDFF7️ Labels: ${steps.env.NODE_LABELS}
-\uD83D\uDD17 Git URL: ${steps.env.GIT_URL ?: 'N/A'}
-\uD83D\uDCCC Git Commit: ${steps.env.GIT_COMMIT ?: 'N/A'}
-\uD83D\uDCC1 Workspace: ${steps.env.WORKSPACE}
-\uD83D\uDCE6 Repo: ${repoName}
-\uD83D\uDEE0️ App Type: ${appType}
-\uD83D\uDCE1 Host Port: ${hostPort}
-\uD83D\uDD12 Docker Port: ${dockerPort}
-${portMessage}
+🔢 Build: ${steps.env.BUILD_NUMBER}
+🧭 Jenkins: ${steps.env.JENKINS_VERSION ?: 'N/A'}
+🖥️ Agent: ${steps.env.NODE_NAME}
+🏷️ Labels: ${steps.env.NODE_LABELS}
+🔗 Git URL: ${steps.env.GIT_URL ?: 'N/A'}
+📌 Commit: ${steps.env.GIT_COMMIT ?: 'N/A'}
+📁 Workspace: ${steps.env.WORKSPACE}
+📦 Repo: ${repoName}
+🛠️ App Type: ${appType}
+📡 Host Port: ${hostPort}
+🔒 Docker Port: ${dockerPort}
+${portMsg}
 =======================
 """
-            steps.writeFile file: 'build-report.txt', text: reportText
-
         } catch (Exception e) {
-            steps.error("\u274C InitEnv failed: ${e.message ?: e.toString()}")
+            steps.error("❌ Initialization failed: ${e.message}")
         }
     }
 
-    @NonCPS
-    def parseAndNormalizeJson(String configText) {
-        def raw = new JsonSlurper().parseText(configText)
-        def normalized = [:]
-        raw.each { type, list ->
-            normalized[type] = list.collect { item ->
-                item.collectEntries { k, v -> [(k): v.toString()] }
-            }
-        }
-        return normalized
-    }
-
-    @NonCPS
-    def findAppType(String repoName, Map parsedMap) {
-        parsedMap.find { type, repos ->
-            repos.find { it['repo-name'] == repoName }
-        }?.key
-    }
-
-    String findAvailablePort(int start, int end) {
-        for (int port = start; port <= end; port++) {
-            if (steps.sh(script: "netstat -an | findstr :${port}", returnStatus: true) != 0) {
-                return port.toString()
-            }
-        }
-        return null
-    }
-
-    void cleanWorkspace() {
-        steps.cleanWs()
-    }
-
-    void checkout(String branch = 'feature') {
+    void checkout(String branch = steps.params.REPO_BRANCH ?: 'feature') {
         steps.checkout([
             $class: 'GitSCM',
             branches: [[name: "*/${branch}"]],
@@ -149,133 +107,118 @@ ${portMessage}
         ])
     }
 
+    void build(String branch = steps.params.REPO_BRANCH ?: 'feature') {
+        buildApp(appType, repoName, imageName)
+    }
+
     void buildApp(String appType, String repoName, String imageName) {
-        def basePath = "target-repo/${repoName}"
-        steps.dir(basePath) {
+        def path = "target-repo/${repoName}"
+        steps.dir(path) {
             switch (appType) {
-                case 'springboot': buildSpringBootApp(imageName); break
-                case 'nodejs':     buildNodeApp(imageName); break
-                case 'python':     buildPythonApp(imageName); break
-                case 'ruby':       buildRubyApp(imageName); break
+                case 'springboot': buildSpringBoot(imageName); break
+                case 'nodejs':     buildNode(imageName); break
+                case 'python':     buildPython(imageName); break
+                case 'ruby':       buildRuby(imageName); break
                 case 'nginx':
-                case 'php':        buildStaticApp(imageName, appType); break
-                default:           steps.error("\u274C Unsupported app type: ${appType}")
+                case 'php':        buildStatic(imageName); break
+                default:           steps.error("❌ Unsupported app type '${appType}'")
             }
         }
     }
 
-    private void buildSpringBootApp(String imageName) {
-        def matches = steps.findFiles(glob: '**/pom.xml')
-        if (!matches) steps.error("\u274C pom.xml not found in project.")
+    private void buildSpringBoot(String imageName) {
+        def pom = steps.findFiles(glob: '**/pom.xml')[0]?.path
+        if (!pom) steps.error("❌ pom.xml missing")
 
-        def pomPath = matches[0].path.replaceAll('\\\\', '/')
-        def pomDir = pomPath.contains('/') ? pomPath.substring(0, pomPath.lastIndexOf('/')) : '.'
-        steps.echo "\uD83D\uDCC2 Spring Boot context: ${pomDir}"
-
-        steps.dir(pomDir) {
+        def dir = pom.contains('/') ? pom.substring(0, pom.lastIndexOf('/')) : '.'
+        steps.dir(dir) {
             runCommand('mvn clean install -DskipTests')
             runCommand('mvn package -DskipTests')
-            checkDockerfileExists()
+            verifyDockerfile()
             runCommand("docker build -t ${imageName}:latest .")
         }
     }
 
-    private void buildNodeApp(String imageName) {
-        steps.echo "\uD83D\uDCE6 Node.js build"
+    private void buildNode(String imageName) {
         runCommand('npm install')
-        runCommand('npm run build || echo \"\u26A0\uFE0F No build step defined.\"')
-        checkDockerfileExists()
+        runCommand('npm run build || echo "⚠️ Skipped build"')
+        verifyDockerfile()
         runCommand("docker build -t ${imageName}:latest .")
     }
 
-    private void buildPythonApp(String imageName) {
-        steps.echo "\uD83D\uDC0D Python app build"
-        runCommand('pip install -r requirements.txt || echo \"\u26A0\uFE0F No requirements.txt or install failed.\"')
-        checkDockerfileExists()
+    private void buildPython(String imageName) {
+        runCommand('pip install -r requirements.txt || echo "⚠️ Missing requirements"')
+        verifyDockerfile()
         runCommand("docker build -t ${imageName}:latest .")
     }
 
-    private void buildRubyApp(String imageName) {
-        steps.echo "\uD83D\uDC8E Ruby app build"
-        runCommand('bundle install || echo \"\u26A0\uFE0F bundle install failed or Gemfile missing.\"')
-        checkDockerfileExists()
+    private void buildRuby(String imageName) {
+        runCommand('bundle install || echo "⚠️ Missing Gemfile or failed"')
+        verifyDockerfile()
         runCommand("docker build -t ${imageName}:latest .")
     }
 
-    private void buildStaticApp(String imageName, String appType) {
-        steps.echo "\u2139\uFE0F No build steps for static ${appType} app. Verifying Dockerfile..."
-        checkDockerfileExists()
+    private void buildStatic(String imageName) {
+        verifyDockerfile()
         runCommand("docker build -t ${imageName}:latest .")
     }
 
-    private void checkDockerfileExists() {
-        def dockerfile = steps.findFiles(glob: 'Dockerfile')
-        if (!dockerfile) steps.error("\u274C Dockerfile missing.")
+    private void runCommand(String cmd) {
+        if (steps.isUnix()) steps.sh cmd else steps.bat cmd
     }
 
-    private void runCommand(String command) {
-        if (steps.isUnix()) steps.sh command else steps.bat command
+    private void verifyDockerfile() {
+        if (!steps.findFiles(glob: 'Dockerfile')) {
+            steps.error("❌ Dockerfile missing")
+        }
     }
 
     void runContainer() {
-        if (!containerName || !imageName || !hostPort || !dockerPort || !appType)
-            steps.error("\u274C Missing required parameters.")
-
-        def contextDir = steps.sh(script: "find . -name Dockerfile -print -quit", returnStdout: true).trim()?.replaceAll('/Dockerfile$', '')
-        if (!contextDir) steps.error("\u274C Dockerfile not found.")
-
         steps.sh "docker stop '${containerName}' || true"
         steps.sh "docker rm '${containerName}' || true"
-        steps.sh "docker build -t '${imageName}:latest' '${contextDir}'"
+
+        def base = steps.sh(script: "find . -name Dockerfile -print -quit", returnStdout: true).trim()?.replaceAll('/Dockerfile$', '')
+
+        if (!base) steps.error("❌ Dockerfile not found in tree")
+
+        steps.sh "docker build -t '${imageName}:latest' '${base}'"
 
         switch (appType) {
             case 'nginx':
-                steps.sh """
-                    docker run -d --name '${containerName}' \
-                      --network spring-net \
-                      -p ${hostPort}:80 \
-                      '${imageName}:latest'
-                """
+                steps.sh "docker run -d --name '${containerName}' --network spring-net -p ${hostPort}:80 '${imageName}:latest'"
                 break
             case 'springboot':
-                steps.sh """
-                    docker run -d --name '${containerName}' \
-                      --network spring-net \
-                      -p ${hostPort}:8080 \
-                      '${imageName}:latest' \
-                      --server.port=${dockerPort} --server.address=0.0.0.0
-                """
+                steps.sh "docker run -d --name '${containerName}' --network spring-net -p ${hostPort}:${dockerPort} '${imageName}:latest' --server.port=${dockerPort} --server.address=0.0.0.0"
                 break
             default:
-                steps.error("\u274C Unsupported appType '${appType}'. Supported: springboot, nginx")
+                steps.error("❌ runContainer unsupported for '${appType}'")
         }
     }
 
     void healthCheck() {
         def endpoint = getHealthEndpoint(appType)
         def url = "http://localhost:${hostPort}${endpoint}"
-
-        steps.echo "\u23F3 Starting health check for '${appType}' app on ${url}"
-        steps.sh "sleep 15"
+        steps.echo "🩺 Checking ${url}"
+        steps.sh "sleep 10"
 
         steps.sh """
-            for i in \$(seq 1 10); do
-                CODE=\$(curl -s -o /dev/null -w '%{http_code}' ${url} || echo 000)
-                echo "Attempt \$i: HTTP \$CODE"
-                if [[ "\$CODE" == "200" || "\$CODE" == "403" || "\$CODE" == "302" ]]; then
-                    echo "\u2705 Health check passed with code \$CODE"
-                    exit 0
-                fi
-                sleep 3
-            done
-            echo "\u274C Health check failed for ${containerName} (${appType})"
-            docker logs ${containerName} || true
-            exit 1
+        for i in \$(seq 1 10); do
+            CODE=\$(curl -s -o /dev/null -w '%{http_code}' ${url} || echo 000)
+            echo "Attempt \$i: HTTP \$CODE"
+            if [[ "\$CODE" =~ ^(200|302|403)\$ ]]; then
+                echo "✅ Healthy"
+                exit 0
+            fi
+            sleep 3
+        done
+        echo "❌ Health check failed"
+        docker logs ${containerName} || true
+        exit 1
         """
     }
 
-    private String getHealthEndpoint(String appType) {
-        switch (appType?.toLowerCase()) {
+    private String getHealthEndpoint(String type) {
+        switch (type?.toLowerCase()) {
             case 'springboot': return "/actuator/health"
             case 'nodejs':
             case 'nginx':
@@ -283,8 +226,36 @@ ${portMessage}
             case 'python':
             case 'ruby': return "/"
             default:
-                steps.echo "\u26A0\uFE0F Unknown app type '${appType}', defaulting to root endpoint"
+                steps.echo "⚠️ Unknown app type '${type}', using root"
                 return "/"
         }
+    }
+
+    @NonCPS
+    def parseAndNormalizeJson(String input) {
+        def raw = new JsonSlurper().parseText(input)
+        def out = [:]
+        raw.each { type, list ->
+            out[type] = list.collect { it.collectEntries { k, v -> [(k): v.toString()] } }
+        }
+        return out
+    }
+
+    @NonCPS
+    def findAppType(String name, Map data) {
+        data.find { k, v -> v.find { it['repo-name'] == name } }?.key
+    }
+
+    String findAvailablePort(int start, int end) {
+        for (int i = start; i <= end; i++) {
+            if (steps.sh(script: "netstat -an | findstr :${i}", returnStatus: true) != 0) {
+                return i.toString()
+            }
+        }
+        return null
+    }
+
+    void cleanWorkspace() {
+        steps.cleanWs()
     }
 }
