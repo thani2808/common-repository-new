@@ -20,24 +20,24 @@ class ApplicationBuilder implements Serializable {
     def initialize() {
         try {
             // === 🐛 Startup Debug Info ===
-            steps.echo "🚀 Jenkins Debug Info"
-            steps.echo "🔢 Jenkins Build Number: ${steps.env.BUILD_NUMBER}"
-            steps.echo "🧭 Jenkins Version: ${steps.env.JENKINS_VERSION ?: 'Unavailable (may need global env setting)'}"
-            steps.echo "🖥️ Agent Name: ${steps.env.NODE_NAME}"
-            steps.echo "🏷️ Node Labels: ${steps.env.NODE_LABELS}"
-            steps.echo "🔗 Git URL: ${steps.env.GIT_URL ?: 'Not available in env'}"
-            steps.echo "📌 Git Commit: ${steps.env.GIT_COMMIT ?: 'Not available in env'}"
-            steps.echo "📁 Workspace: ${steps.env.WORKSPACE}"
+            steps.echo "\uD83D\uDE80 Jenkins Debug Info"
+            steps.echo "\uD83D\uDD67 Jenkins Build Number: ${steps.env.BUILD_NUMBER}"
+            steps.echo "\uD83E\uDDF1 Jenkins Version: ${steps.env.JENKINS_VERSION ?: 'Unavailable (may need global env setting)'}"
+            steps.echo "\uD83D\uDCA5 Agent Name: ${steps.env.NODE_NAME}"
+            steps.echo "\uD83C\uDFF7️ Node Labels: ${steps.env.NODE_LABELS}"
+            steps.echo "\uD83D\uDD17 Git URL: ${steps.env.GIT_URL ?: 'Not available in env'}"
+            steps.echo "\uD83D\uDCCC Git Commit: ${steps.env.GIT_COMMIT ?: 'Not available in env'}"
+            steps.echo "\uD83D\uDCC1 Workspace: ${steps.env.WORKSPACE}"
 
             repoName = steps.params.REPO_NAME
-            if (!repoName?.trim()) steps.error("❌ 'REPO_NAME' must be provided.")
+            if (!repoName?.trim()) steps.error("\u274C 'REPO_NAME' must be provided.")
 
             def configText = steps.libraryResource("common-repo-list.js")
             steps.writeFile(file: "common-repo-list.js", text: configText)
 
             def parsedMap = parseAndNormalizeJson(configText)
             def appTypeKey = findAppType(repoName, parsedMap)
-            if (!appTypeKey) steps.error("❌ Repository '${repoName}' not found.")
+            if (!appTypeKey) steps.error("\u274C Repository '${repoName}' not found.")
 
             appType = appTypeKey.toLowerCase()
             def isEureka = (appType == 'eureka')
@@ -51,13 +51,13 @@ class ApplicationBuilder implements Serializable {
                 hostPort = findAvailablePort(9001, 9010)
             }
 
-            if (!hostPort) steps.error("❌ No available port found for appType: ${appType}")
+            if (!hostPort) steps.error("\u274C No available port found for appType: ${appType}")
 
             def portMessage = isEureka
-                ? "🔌 Reserved static port 8761 for Eureka Server"
+                ? "\uD83D\uDD0C Reserved static port 8761 for Eureka Server"
                 : isNginx
-                    ? "🌐 Assigned available port ${hostPort} for Nginx reverse proxy"
-                    : "🧪 Assigned available port ${hostPort} for ${appType} application"
+                    ? "\uD83C\uDF10 Assigned available port ${hostPort} for Nginx reverse proxy"
+                    : "\uD83E\uDDEA Assigned available port ${hostPort} for ${appType} application"
 
             steps.echo(portMessage)
 
@@ -74,30 +74,30 @@ class ApplicationBuilder implements Serializable {
             steps.env.IS_EUREKA      = isEureka.toString()
             steps.env.HOST_PORT      = hostPort
 
-            steps.echo "✅ Environment initialized for '${repoName}'"
-            steps.echo "📡 HOST_PORT=${hostPort} will map to internal DOCKER_PORT=${dockerPort}"
+            steps.echo "\u2705 Environment initialized for '${repoName}'"
+            steps.echo "\uD83D\uDCE1 HOST_PORT=${hostPort} will map to internal DOCKER_PORT=${dockerPort}"
 
-            // === 📄 Build Report File ===
+            // === \uD83D\uDCC4 Build Report File ===
             def reportText = """
 ==== Build Report ====
-🔢 Jenkins Build Number: ${steps.env.BUILD_NUMBER}
-🧭 Jenkins Version: ${steps.env.JENKINS_VERSION ?: 'Unavailable'}
-🖥️ Agent: ${steps.env.NODE_NAME}
-🏷️ Labels: ${steps.env.NODE_LABELS}
-🔗 Git URL: ${steps.env.GIT_URL ?: 'N/A'}
-📌 Git Commit: ${steps.env.GIT_COMMIT ?: 'N/A'}
-📁 Workspace: ${steps.env.WORKSPACE}
-📦 Repo: ${repoName}
-🛠️ App Type: ${appType}
-📡 Host Port: ${hostPort}
-🔒 Docker Port: ${dockerPort}
+\uD83D\uDD67 Jenkins Build Number: ${steps.env.BUILD_NUMBER}
+\uD83E\uDDF1 Jenkins Version: ${steps.env.JENKINS_VERSION ?: 'Unavailable'}
+\uD83D\uDCA5 Agent: ${steps.env.NODE_NAME}
+\uD83C\uDFF7️ Labels: ${steps.env.NODE_LABELS}
+\uD83D\uDD17 Git URL: ${steps.env.GIT_URL ?: 'N/A'}
+\uD83D\uDCCC Git Commit: ${steps.env.GIT_COMMIT ?: 'N/A'}
+\uD83D\uDCC1 Workspace: ${steps.env.WORKSPACE}
+\uD83D\uDCE6 Repo: ${repoName}
+\uD83D\uDEE0️ App Type: ${appType}
+\uD83D\uDCE1 Host Port: ${hostPort}
+\uD83D\uDD12 Docker Port: ${dockerPort}
 ${portMessage}
 =======================
 """
             steps.writeFile file: 'build-report.txt', text: reportText
 
         } catch (Exception e) {
-            steps.error("❌ InitEnv failed: ${e.message ?: e.toString()}")
+            steps.error("\u274C InitEnv failed: ${e.message ?: e.toString()}")
         }
     }
 
@@ -149,21 +149,6 @@ ${portMessage}
         ])
     }
 
-    void preRunDebug() {
-        steps.echo "🔧 Pre-Run – env.APP_TYPE       = '${steps.env.APP_TYPE}'"
-        steps.echo "🔧 Pre-Run – env.IMAGE_NAME     = '${steps.env.IMAGE_NAME}'"
-        steps.echo "🔧 Pre-Run – env.CONTAINER_NAME = '${steps.env.CONTAINER_NAME}'"
-
-        if (!steps.env.APP_TYPE) {
-            steps.error "❌ Pre-Run check failed: APP_TYPE still null!"
-        }
-    }
-
-    void build(String branch) {
-        steps.echo "⚙️ build(repo, branch) invoked"
-        buildApp(appType, repoName, imageName)
-    }
-
     void buildApp(String appType, String repoName, String imageName) {
         def basePath = "target-repo/${repoName}"
         steps.dir(basePath) {
@@ -174,18 +159,18 @@ ${portMessage}
                 case 'ruby':       buildRubyApp(imageName); break
                 case 'nginx':
                 case 'php':        buildStaticApp(imageName, appType); break
-                default:           steps.error("❌ Unsupported app type: ${appType}")
+                default:           steps.error("\u274C Unsupported app type: ${appType}")
             }
         }
     }
 
     private void buildSpringBootApp(String imageName) {
         def matches = steps.findFiles(glob: '**/pom.xml')
-        if (!matches) steps.error("❌ pom.xml not found in project.")
+        if (!matches) steps.error("\u274C pom.xml not found in project.")
 
         def pomPath = matches[0].path.replaceAll('\\\\', '/')
         def pomDir = pomPath.contains('/') ? pomPath.substring(0, pomPath.lastIndexOf('/')) : '.'
-        steps.echo "📂 Spring Boot context: ${pomDir}"
+        steps.echo "\uD83D\uDCC2 Spring Boot context: ${pomDir}"
 
         steps.dir(pomDir) {
             runCommand('mvn clean install -DskipTests')
@@ -196,36 +181,36 @@ ${portMessage}
     }
 
     private void buildNodeApp(String imageName) {
-        steps.echo "📦 Node.js build"
+        steps.echo "\uD83D\uDCE6 Node.js build"
         runCommand('npm install')
-        runCommand('npm run build || echo \"⚠️ No build step defined.\"')
+        runCommand('npm run build || echo \"\u26A0\uFE0F No build step defined.\"')
         checkDockerfileExists()
         runCommand("docker build -t ${imageName}:latest .")
     }
 
     private void buildPythonApp(String imageName) {
-        steps.echo "🐍 Python app build"
-        runCommand('pip install -r requirements.txt || echo \"⚠️ No requirements.txt or install failed.\"')
+        steps.echo "\uD83D\uDC0D Python app build"
+        runCommand('pip install -r requirements.txt || echo \"\u26A0\uFE0F No requirements.txt or install failed.\"')
         checkDockerfileExists()
         runCommand("docker build -t ${imageName}:latest .")
     }
 
     private void buildRubyApp(String imageName) {
-        steps.echo "💎 Ruby app build"
-        runCommand('bundle install || echo \"⚠️ bundle install failed or Gemfile missing.\"')
+        steps.echo "\uD83D\uDC8E Ruby app build"
+        runCommand('bundle install || echo \"\u26A0\uFE0F bundle install failed or Gemfile missing.\"')
         checkDockerfileExists()
         runCommand("docker build -t ${imageName}:latest .")
     }
 
     private void buildStaticApp(String imageName, String appType) {
-        steps.echo "ℹ️ No build steps for static ${appType} app. Verifying Dockerfile..."
+        steps.echo "\u2139\uFE0F No build steps for static ${appType} app. Verifying Dockerfile..."
         checkDockerfileExists()
         runCommand("docker build -t ${imageName}:latest .")
     }
 
     private void checkDockerfileExists() {
         def dockerfile = steps.findFiles(glob: 'Dockerfile')
-        if (!dockerfile) steps.error("❌ Dockerfile missing.")
+        if (!dockerfile) steps.error("\u274C Dockerfile missing.")
     }
 
     private void runCommand(String command) {
@@ -234,10 +219,10 @@ ${portMessage}
 
     void runContainer() {
         if (!containerName || !imageName || !hostPort || !dockerPort || !appType)
-            steps.error("❌ Missing required parameters.")
+            steps.error("\u274C Missing required parameters.")
 
         def contextDir = steps.sh(script: "find . -name Dockerfile -print -quit", returnStdout: true).trim()?.replaceAll('/Dockerfile$', '')
-        if (!contextDir) steps.error("❌ Dockerfile not found.")
+        if (!contextDir) steps.error("\u274C Dockerfile not found.")
 
         steps.sh "docker stop '${containerName}' || true"
         steps.sh "docker rm '${containerName}' || true"
@@ -262,7 +247,7 @@ ${portMessage}
                 """
                 break
             default:
-                steps.error("❌ Unsupported appType '${appType}'. Supported: springboot, nginx")
+                steps.error("\u274C Unsupported appType '${appType}'. Supported: springboot, nginx")
         }
     }
 
@@ -270,7 +255,7 @@ ${portMessage}
         def endpoint = getHealthEndpoint(appType)
         def url = "http://localhost:${hostPort}${endpoint}"
 
-        steps.echo "⏳ Starting health check for '${appType}' app on ${url}"
+        steps.echo "\u23F3 Starting health check for '${appType}' app on ${url}"
         steps.sh "sleep 15"
 
         steps.sh """
@@ -278,12 +263,12 @@ ${portMessage}
                 CODE=\$(curl -s -o /dev/null -w '%{http_code}' ${url} || echo 000)
                 echo "Attempt \$i: HTTP \$CODE"
                 if [[ "\$CODE" == "200" || "\$CODE" == "403" || "\$CODE" == "302" ]]; then
-                    echo "✅ Health check passed with code \$CODE"
+                    echo "\u2705 Health check passed with code \$CODE"
                     exit 0
                 fi
                 sleep 3
             done
-            echo "❌ Health check failed for ${containerName} (${appType})"
+            echo "\u274C Health check failed for ${containerName} (${appType})"
             docker logs ${containerName} || true
             exit 1
         """
@@ -298,7 +283,7 @@ ${portMessage}
             case 'python':
             case 'ruby': return "/"
             default:
-                steps.echo "⚠️ Unknown app type '${appType}', defaulting to root endpoint"
+                steps.echo "\u26A0\uFE0F Unknown app type '${appType}', defaulting to root endpoint"
                 return "/"
         }
     }
