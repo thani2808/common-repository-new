@@ -182,6 +182,10 @@ ${portMsg}
             default:
                 steps.error("❌ runContainer unsupported for '${appType}'")
         }
+	
+	// ✅ Debug the container status and logs right after running it
+	steps.sh "docker ps -a --filter name='${containerName}'"
+        steps.sh "docker logs '${containerName}' || true"
     }
 
     void healthCheck() {
@@ -189,7 +193,7 @@ ${portMsg}
         def url = "http://localhost:${hostPort}${endpoint}"
 
         steps.echo "🩺 Checking ${url}"
-        steps.sh "sleep 10"
+        steps.sh "sleep 20"
 
         steps.sh """
         for i in \$(seq 1 10); do
