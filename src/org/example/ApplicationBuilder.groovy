@@ -175,7 +175,7 @@ ${portMsg}
                 steps.sh "docker run -d --name '${containerName}' --network spring-net -p ${hostPort}:80 '${imageName}:latest'"
                 break
             case 'springboot':
-                steps.sh "docker run -d --name '${containerName}' --network spring-net -p ${hostPort}:${dockerPort} '${imageName}:latest' --server.port=${dockerPort} --server.address=0.0.0.0"
+		steps.sh "docker run -d --name '${containerName}' --add-host=host.docker.internal:host-gateway --network spring-net -p ${hostPort}:${dockerPort} '${imageName}:latest' --server.port=${dockerPort} --server.address=0.0.0.0"
                 break
             default:
                 steps.error("❌ runContainer unsupported for '${appType}'")
