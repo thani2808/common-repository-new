@@ -193,11 +193,13 @@ ${portMsg}
 
         steps.sh """
         for i in \$(seq 1 10); do
-            CODE=\$(curl -s -o /dev/null -w '%{http_code}' ${url} || echo 000)
-            echo "Attempt \$i: HTTP \$CODE"
-            if [[ "\$CODE" =~ ^(200|302|403)\$ ]]; then
+            CODE=\$(curl -s -o /dev/null -w '%{http_code}' ${url})
+            STATUS=\$?
+            if [ \$STATUS -eq 0 ] && [[ "\$CODE" =~ ^(200|302|403)\$ ]]; then
                 echo "✅ Healthy"
                 exit 0
+            else
+                echo "Attempt \$i: HTTP \$CODE (curl status: \$STATUS)"
             fi
             sleep 3
         done
