@@ -18,6 +18,7 @@ class ApplicationBuilder implements Serializable {
 
     def initialize() {
         try {
+            // === 🐛 Startup Debug Info ===
             steps.echo "🚀 Jenkins Debug Info"
             steps.echo "🔹 Build: ${steps.env.BUILD_NUMBER}"
             steps.echo "🔭 Jenkins: ${steps.env.JENKINS_VERSION ?: 'N/A'}"
@@ -118,7 +119,7 @@ ${portMsg}
                 case 'ruby'      : buildRuby(imageName); break
                 case 'nginx':
                 case 'php'       : buildStatic(imageName); break
-                default: steps.error("❌ Unsupported app type '${appType}'")
+                default          : steps.error("❌ Unsupported app type '${appType}'")
             }
         }
     }
@@ -206,15 +207,22 @@ ${portMsg}
         steps.sh "docker stop '${containerName}' || true"
         steps.sh "docker rm '${containerName}' || true"
 
-        def base = steps.sh(script: "find . -name Dockerfile -print -quit", returnStdout: true).trim()?.replaceAll('/Dockerfile$', '')
+        def base = steps.sh(script: "find . -name Dockerfile -print -quit", returnStdout: true)
+                     .trim()?.replaceAll('/Dockerfile$', '')
         if (!base) steps.error("❌ Dockerfile not found in tree")
 
         steps.sh "docker build -t '${imageName}:latest' '${base}'"
 
-        def cmd = switch (appType) {
-            case 'nginx'      -> "docker run -d --name '${containerName}' --network spring-net -p ${hostPort}:80 '${imageName}:latest'"
-            case 'springboot' -> "docker run -d --name '${containerName}' --add-host=host.docker.internal:host-gateway --network spring-net -p ${hostPort}:${dockerPort} '${imageName}:latest' --server.port=${dockerPort} --server.address=0.0.0.0"
-            default           -> steps.error("❌ runContainer unsupported for '${appType}'")
+        def cmd = ""
+        switch (appType) {
+            case 'nginx':
+                cmd = "docker run -d --name '${containerName}' --network spring-net -p ${hostPort}:80 '${imageName}:latest'"
+                break
+            case 'springboot':
+                cmd = "docker run -d --name '${containerName}' --add-host=host.docker.internal:host-gateway --network spring-net -p ${hostPort}:${dockerPort} '${imageName}:latest' --server.port=${dockerPort} --server.address=0.0.0.0"
+                break
+            default:
+                steps.error("❌ runContainer unsupported for '${appType}'")
         }
 
         steps.sh cmd
