@@ -203,23 +203,24 @@ ${portMsg}
         steps.echo "🩺 Checking health from inside container: ${url}"
         steps.sh "sleep 30"
 
-        steps.sh """
-        for i in \$(seq 1 10); do
-            CODE=\$(docker exec ${containerName} curl -s -o /dev/null -w '%{http_code}' ${url})
-            STATUS=\$?
-            if [ \$STATUS -eq 0 ] && [[ "\$CODE" =~ ^(200|302|403)\$ ]]; then
-                echo "✅ Healthy"
-                exit 0
-            else
-                echo "Attempt \$i: HTTP \$CODE (curl status: \$STATUS)"
-                docker logs ${containerName} || true
-            fi
-            sleep 5
-        done
-        echo "❌ Health check failed"
-        docker logs ${containerName} || true
-        exit 1
-        """
+	steps.sh """
+	for i in \$(seq 1 10); do
+	  CODE=\$(curl -s -o /dev/null -w '%{http_code}' ${url})
+	  STATUS=\$?
+	  if [ \$STATUS -eq 0 ] && [[ "\$CODE" =~ ^(200|302|403)\$ ]]; then
+	      echo "✅ Healthy"
+	      exit 0
+	  else
+	      echo "Attempt \$i: HTTP \$CODE (curl status: \$STATUS)"
+	      echo "🔍 Logs:"
+	      docker logs ${containerName} || true
+	  fi
+	  sleep 5
+	done
+	echo "❌ Health check failed"
+	docker logs ${containerName} || true
+	exit 1
+	"""
     }
 
     private String getHealthEndpoint(String type) {
