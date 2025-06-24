@@ -190,7 +190,7 @@ ${portMsg}
         def url = "http://localhost:${hostPort}${endpoint}"
 
         steps.echo "🩺 Checking ${url}"
-        steps.sh "sleep 30"
+        steps.sh "sleep 90"
 
         steps.sh """
         for i in \$(seq 1 10); do
@@ -201,6 +201,8 @@ ${portMsg}
                 exit 0
             else
                 echo "Attempt \$i: HTTP \$CODE (curl status: \$STATUS)"
+		echo "🔍 Showing container logs after failed attempt:"
+	        docker logs ${containerName} || true
             fi
             sleep 3
         done
