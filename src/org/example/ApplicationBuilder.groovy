@@ -18,7 +18,6 @@ class ApplicationBuilder implements Serializable {
 
     def initialize() {
         try {
-            // === 🐛 Startup Debug Info ===
             steps.echo "🚀 Jenkins Debug Info"
             steps.echo "🔹 Build: ${steps.env.BUILD_NUMBER}"
             steps.echo "🔭 Jenkins: ${steps.env.JENKINS_VERSION ?: 'N/A'}"
@@ -189,8 +188,8 @@ ${portMsg}
         def mysqlRunCmd = """
             docker run --rm --name ${mysqlContainerName} \
             --network spring-net \
-            -e MYSQL_ROOT_PASSWORD=Thani@01 \
-            -e MYSQL_DATABASE=world \
+            -e MYSQL_ROOT_PASSWORD=root \
+            -e MYSQL_DATABASE=mydb \
             -p 3307:3306 \
             -d mysql:8
         """.stripIndent().trim()
@@ -219,7 +218,7 @@ ${portMsg}
                 cmd = "docker run -d --name '${containerName}' --network spring-net -p ${hostPort}:80 '${imageName}:latest'"
                 break
             case 'springboot':
-                cmd = "docker run -d --name '${containerName}' --add-host=host.docker.internal:host-gateway --network spring-net -p ${hostPort}:${dockerPort} '${imageName}:latest' --server.port=${dockerPort} --server.address=0.0.0.0"
+                cmd = "docker run -d --name '${containerName}' --network spring-net -p ${hostPort}:${dockerPort} '${imageName}:latest' --server.port=${dockerPort} --server.address=0.0.0.0"
                 break
             default:
                 steps.error("❌ runContainer unsupported for '${appType}'")
