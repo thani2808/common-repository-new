@@ -52,7 +52,6 @@ class ApplicationBuilder implements Serializable {
             containerName = "${repoName.toLowerCase()}-container"
             dockerPort    = isEureka ? '8761' : '8080'
 
-            // Export to env
             steps.env.APP_TYPE       = appType
             steps.env.PROJECT_DIR    = repoName
             steps.env.IMAGE_NAME     = imageName
@@ -129,7 +128,6 @@ ${portMsg}
     private void buildSpringBoot(String imageName) {
         def pom = steps.findFiles(glob: '**/pom.xml')[0]?.path
         if (!pom) steps.error("❌ pom.xml missing")
-
         def dir = pom.contains('/') ? pom.substring(0, pom.lastIndexOf('/')) : '.'
         steps.dir(dir) {
             runCommand('mvn clean install -DskipTests')
@@ -182,9 +180,8 @@ ${portMsg}
             default:
                 steps.error("❌ runContainer unsupported for '${appType}'")
         }
-	
-	// ✅ Debug the container status and logs right after running it
-	steps.sh "docker ps -a --filter name='${containerName}'"
+
+        steps.sh "docker ps -a --filter name='${containerName}'"
         steps.sh "docker logs '${containerName}' || true"
     }
 
@@ -212,8 +209,6 @@ ${portMsg}
         exit 1
         """
     }
-
-    // === Utility & Helpers ===
 
     private String getHealthEndpoint(String type) {
         switch (type?.toLowerCase()) {
