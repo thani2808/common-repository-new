@@ -193,7 +193,7 @@ ${portMsg}
         def url = "http://localhost:${hostPort}${endpoint}"
 
         steps.echo "🩺 Checking ${url}"
-        steps.sh "sleep 20"
+        steps.sh "sleep 30"
 
         steps.sh """
         for i in \$(seq 1 10); do
