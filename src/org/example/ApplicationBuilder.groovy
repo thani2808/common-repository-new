@@ -5,7 +5,6 @@ import groovy.json.JsonSlurper
 class ApplicationBuilder implements Serializable {
     def steps
 
-    // Common variables
     String repoName
     String appType
     String imageName
@@ -39,19 +38,19 @@ class ApplicationBuilder implements Serializable {
             if (!appTypeKey) steps.error("❌ App type for '${repoName}' not found")
 
             appType = appTypeKey.toLowerCase()
-            def isEureka = (appType == 'eureka')
-            def isNginx  = (appType == 'nginx')
+            def isEureka = appType == 'eureka'
+            def isNginx  = appType == 'nginx'
 
             hostPort = isEureka ? '8761' :
                        isNginx  ? findAvailablePort(8081, 9000) :
                                   findAvailablePort(9001, 9010)
-
             if (!hostPort) steps.error("❌ No free port found for '${appType}'")
 
             imageName     = "${repoName.toLowerCase()}-image"
             containerName = "${repoName.toLowerCase()}-container"
             dockerPort    = isEureka ? '8761' : '8080'
 
+            // Set env for shared use
             steps.env.APP_TYPE       = appType
             steps.env.PROJECT_DIR    = repoName
             steps.env.IMAGE_NAME     = imageName
@@ -170,16 +169,14 @@ ${portMsg}
 
         steps.sh "docker build -t '${imageName}:latest' '${base}'"
 
-        switch (appType) {
-            case 'nginx':
-                steps.sh "docker run -d --name '${containerName}' --network spring-net -p ${hostPort}:80 '${imageName}:latest'"
-                break
-            case 'springboot':
-		steps.sh "docker run -d --name '${containerName}' --add-host=host.docker.internal:host-gateway --network spring-net -p ${hostPort}:${dockerPort} '${imageName}:latest' --server.port=${dockerPort} --server.address=0.0.0.0"
-                break
-            default:
-                steps.error("❌ runContainer unsupported for '${appType}'")
+        def cmd = switch (appType) {
+            case 'nginx' -> "docker run -d --name '${containerName}' --network spring-net -p ${hostPort}:80 '${imageName}:latest'"
+            case 'springboot' -> "docker run -d --name '${containerName}' --add-host=host.docker.internal:host-gateway --network spring-net -p ${hostPort}:${dockerPort} '${imageName}:latest' --server.port=${dockerPort} --server.address=0.0.0.0"
+            default -> null
         }
+
+        if (!cmd) steps.error("❌ runContainer unsupported for '${appType}'")
+        steps.sh cmd
 
         steps.sh "docker ps -a --filter name='${containerName}'"
         steps.sh "docker logs '${containerName}' || true"
@@ -187,24 +184,24 @@ ${portMsg}
 
     void healthCheck() {
         def endpoint = getHealthEndpoint(appType)
-        def url = "http://localhost:${hostPort}${endpoint}"
+        def url = "http://localhost:${dockerPort}${endpoint}"
 
-        steps.echo "🩺 Checking ${url}"
-        steps.sh "sleep 90"
+        steps.echo "🩺 Checking health from inside container: ${url}"
+        steps.sh "sleep 30"
 
         steps.sh """
         for i in \$(seq 1 10); do
-            CODE=\$(curl -s -o /dev/null -w '%{http_code}' ${url})
+            CODE=\$(docker exec ${containerName} curl -s -o /dev/null -w '%{http_code}' ${url})
             STATUS=\$?
             if [ \$STATUS -eq 0 ] && [[ "\$CODE" =~ ^(200|302|403)\$ ]]; then
                 echo "✅ Healthy"
                 exit 0
             else
                 echo "Attempt \$i: HTTP \$CODE (curl status: \$STATUS)"
-		echo "🔍 Showing container logs after failed attempt:"
-	        docker logs ${containerName} || true
+                echo "🔍 Logs:"
+                docker logs ${containerName} || true
             fi
-            sleep 3
+            sleep 5
         done
         echo "❌ Health check failed"
         docker logs ${containerName} || true
