@@ -186,10 +186,10 @@ ${portMsg}
         def mysqlContainerName = "mysql-db"
         steps.sh "docker rm -f ${mysqlContainerName} || true"
         def mysqlRunCmd = """
-            docker run --rm --name ${mysqlContainerName} \
+            docker run -d --name ${mysqlContainerName} \
             --network spring-net \
             -e MYSQL_ROOT_PASSWORD=root \
-            -e MYSQL_DATABASE=mydb \
+            -e MYSQL_DATABASE=world \
             -p 3307:3306 \
             -d mysql:8
         """.stripIndent().trim()
