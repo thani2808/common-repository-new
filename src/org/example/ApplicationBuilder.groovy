@@ -189,7 +189,7 @@ ${portMsg}
         def mysqlRunCmd = """
             docker run --rm --name ${mysqlContainerName} \
             --network spring-net \
-            -e MYSQL_ROOT_PASSWORD=root \
+            -e MYSQL_ROOT_PASSWORD=Thani@01 \
             -e MYSQL_DATABASE=world \
             -p 3307:3306 \
             -d mysql:8
