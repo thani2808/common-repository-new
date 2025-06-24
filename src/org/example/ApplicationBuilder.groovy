@@ -50,7 +50,6 @@ class ApplicationBuilder implements Serializable {
             containerName = "${repoName.toLowerCase()}-container"
             dockerPort    = isEureka ? '8761' : '8080'
 
-            // Set env for shared use
             steps.env.APP_TYPE       = appType
             steps.env.PROJECT_DIR    = repoName
             steps.env.IMAGE_NAME     = imageName
@@ -113,13 +112,24 @@ ${portMsg}
     void buildApp(String appType, String repoName, String imageName) {
         steps.dir("target-repo/${repoName}") {
             switch (appType) {
-                case 'springboot': buildSpringBoot(imageName); break
-                case 'nodejs':     buildNode(imageName); break
-                case 'python':     buildPython(imageName); break
-                case 'ruby':       buildRuby(imageName); break
+                case 'springboot':
+                    buildSpringBoot(imageName)
+                    break
+                case 'nodejs':
+                    buildNode(imageName)
+                    break
+                case 'python':
+                    buildPython(imageName)
+                    break
+                case 'ruby':
+                    buildRuby(imageName)
+                    break
                 case 'nginx':
-                case 'php':        buildStatic(imageName); break
-                default:           steps.error("❌ Unsupported app type '${appType}'")
+                case 'php':
+                    buildStatic(imageName)
+                    break
+                default:
+                    steps.error("❌ Unsupported app type '${appType}'")
             }
         }
     }
@@ -169,15 +179,19 @@ ${portMsg}
 
         steps.sh "docker build -t '${imageName}:latest' '${base}'"
 
-        def cmd = switch (appType) {
-            case 'nginx' -> "docker run -d --name '${containerName}' --network spring-net -p ${hostPort}:80 '${imageName}:latest'"
-            case 'springboot' -> "docker run -d --name '${containerName}' --add-host=host.docker.internal:host-gateway --network spring-net -p ${hostPort}:${dockerPort} '${imageName}:latest' --server.port=${dockerPort} --server.address=0.0.0.0"
-            default -> null
+        def cmd = null
+        switch (appType) {
+            case 'nginx':
+                cmd = "docker run -d --name '${containerName}' --network spring-net -p ${hostPort}:80 '${imageName}:latest'"
+                break
+            case 'springboot':
+                cmd = "docker run -d --name '${containerName}' --add-host=host.docker.internal:host-gateway --network spring-net -p ${hostPort}:${dockerPort} '${imageName}:latest' --server.port=${dockerPort} --server.address=0.0.0.0"
+                break
+            default:
+                steps.error("❌ runContainer unsupported for '${appType}'")
         }
 
-        if (!cmd) steps.error("❌ runContainer unsupported for '${appType}'")
         steps.sh cmd
-
         steps.sh "docker ps -a --filter name='${containerName}'"
         steps.sh "docker logs '${containerName}' || true"
     }
@@ -198,7 +212,6 @@ ${portMsg}
                 exit 0
             else
                 echo "Attempt \$i: HTTP \$CODE (curl status: \$STATUS)"
-                echo "🔍 Logs:"
                 docker logs ${containerName} || true
             fi
             sleep 5
