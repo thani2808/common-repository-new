@@ -188,15 +188,19 @@ ${portMsg}
 
         steps.sh "docker build -t '${imageName}:latest' '${base}'"
 
-        def cmd = switch (appType) {
-            case 'nginx' -> "docker run -d --name '${containerName}' --network spring-net -p ${hostPort}:80 '${imageName}:latest'"
-            case 'springboot' -> "docker run -d --name '${containerName}' --add-host=host.docker.internal:host-gateway --network spring-net -p ${hostPort}:${dockerPort} '${imageName}:latest' --server.port=${dockerPort} --server.address=0.0.0.0"
-            default -> null
+        def cmd = null
+        switch (appType) {
+            case 'nginx':
+                cmd = "docker run -d --name '${containerName}' --network spring-net -p ${hostPort}:80 '${imageName}:latest'"
+                break
+            case 'springboot':
+                cmd = "docker run -d --name '${containerName}' --add-host=host.docker.internal:host-gateway --network spring-net -p ${hostPort}:${dockerPort} '${imageName}:latest' --server.port=${dockerPort} --server.address=0.0.0.0"
+                break
+            default:
+                steps.error("\u274C runContainer unsupported for '${appType}'")
         }
 
-        if (!cmd) steps.error("\u274C runContainer unsupported for '${appType}'")
         steps.sh cmd
-
         steps.sh "docker ps -a --filter name='${containerName}'"
         steps.sh "docker logs '${containerName}' || true"
     }
