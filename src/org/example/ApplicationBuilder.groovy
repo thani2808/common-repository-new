@@ -219,6 +219,15 @@ class ApplicationBuilder implements Serializable {
 	        """
 	        break
 
+	    case 'eureka':
+	        steps.sh """
+                    docker run -d --name ${containerName} \
+                      --network spring-net \
+                      -p ${hostPort}:8761 \
+                      ${imageName}:latest
+                """
+                break
+
 	    default:
 	        steps.error("❌ Unsupported appType '${appType}'. Supported: springboot, nginx")
 	}
