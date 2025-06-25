@@ -189,8 +189,10 @@ class ApplicationBuilder implements Serializable {
 
     void startMySQLContainer() {
         def mysqlContainerName = "mysql-db"
+        steps.echo "🛠 Checking if MySQL container '${mysqlContainerName}' exists..."
         def runCmd = """
             if ! docker ps -a --format '{{.Names}}' | grep -q '^${mysqlContainerName}\$'; then
+              echo "📦 Creating new MySQL container..."
               docker run -d --name ${mysqlContainerName} --network spring-net \\
                 -e MYSQL_ROOT_PASSWORD=Thani@01 \\
                 -e MYSQL_DATABASE=world \\
