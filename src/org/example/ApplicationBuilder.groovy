@@ -209,6 +209,9 @@ class ApplicationBuilder implements Serializable {
         if (!containerName || !imageName || !hostPort || !dockerPort || !appType)
             steps.error("❌ Missing required parameters.")
 
+        // ✅ Start MySQL if needed
+        startMySQLContainer()
+
         def contextDir = steps.sh(script: "find . -name Dockerfile -print -quit", returnStdout: true).trim()?.replaceAll('/Dockerfile$', '')
         if (!contextDir) steps.error("❌ Dockerfile not found.")
 
@@ -219,23 +222,23 @@ class ApplicationBuilder implements Serializable {
         switch (appType) {
             case 'nginx':
                 steps.sh """
-                    docker run -d --name ${containerName} \\
-                      --network spring-net \\
-                      -p ${hostPort}:80 \\
+                    docker run -d --name ${containerName} \
+                      --network spring-net \
+                      -p ${hostPort}:80 \
                       ${imageName}:latest
                 """
                 break
             case 'springboot':
                 steps.sh """
-                    docker run -d --name ${containerName} \\
-                      --network spring-net \\
-                      -p ${hostPort}:8080 \\
-                      ${imageName}:latest \\
-                      --server.port=${dockerPort} \\
-                      --server.address=0.0.0.0 \\
-                      --spring.datasource.url=jdbc:mysql://mysql-db:3306/world \\
-                      --spring.datasource.username=root \\
-                      --spring.datasource.password=Thani@01 \\
+                    docker run -d --name ${containerName} \
+                      --network spring-net \
+                      -p ${hostPort}:8080 \
+                      ${imageName}:latest \
+                      --server.port=${dockerPort} \
+                      --server.address=0.0.0.0 \
+                      --spring.datasource.url=jdbc:mysql://mysql-db:3306/world \
+                      --spring.datasource.username=root \
+                      --spring.datasource.password=Thani@01 \
                       --spring.jpa.hibernate.ddl-auto=update
                 """
                 break
