@@ -199,27 +199,29 @@ class ApplicationBuilder implements Serializable {
         steps.sh "docker rm '${containerName}' || true"
         steps.sh "docker build -t '${imageName}:latest' '${contextDir}'"
 
-        switch (appType) {
-            case 'nginx':
-                steps.sh """
-                    docker run -d --name '${containerName}' \
-                      --network spring-net \
-                      -p ${hostPort}:80 \
-                      '${imageName}:latest'
-                """
-                break
-            case 'springboot':
-                steps.sh """
-                    docker run -d --name '${containerName}' \
-                      --network spring-net \
-                      -p ${hostPort}:8080 \
-                      '${imageName}:latest' \
-                      --server.port=${dockerPort} --server.address=0.0.0.0
-                """
-                break
-            default:
-                steps.error("❌ Unsupported appType '${appType}'. Supported: springboot, nginx")
-        }
+	switch (appType) {
+	    case 'nginx':
+	        steps.sh """
+	            docker run -d --name ${containerName} \
+	              --network spring-net \
+	              -p ${hostPort}:80 \
+	              ${imageName}:latest
+	        """
+	        break
+
+	    case 'springboot':
+	        steps.sh """
+	            docker run -d --name ${containerName} \
+	              --network spring-net \
+	              -p ${hostPort}:8080 \
+	              ${imageName}:latest \
+	              --server.port=${dockerPort} --server.address=0.0.0.0
+	        """
+	        break
+
+	    default:
+	        steps.error("❌ Unsupported appType '${appType}'. Supported: springboot, nginx")
+	}
     }
 
     void healthCheck() {
