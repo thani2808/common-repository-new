@@ -41,7 +41,6 @@ class ApplicationBuilder implements Serializable {
             containerName = "${repoName.toLowerCase()}-container"
             dockerPort = isEureka ? '8761' : '8080'
 
-            // Export to env
             steps.env.APP_TYPE = appType
             steps.env.PROJECT_DIR = repoName
             steps.env.IMAGE_NAME = imageName
@@ -188,6 +187,22 @@ class ApplicationBuilder implements Serializable {
         if (steps.isUnix()) steps.sh command else steps.bat command
     }
 
+    void startMySQLContainer() {
+        def mysqlContainerName = "mysql-db"
+        def runCmd = """
+            if ! docker ps -a --format '{{.Names}}' | grep -q '^${mysqlContainerName}\$'; then
+              docker run -d --name ${mysqlContainerName} --network spring-net \\
+                -e MYSQL_ROOT_PASSWORD=Thani@01 \\
+                -e MYSQL_DATABASE=world \\
+                mysql:8
+            else
+              echo "✅ ${mysqlContainerName} already exists."
+              docker start ${mysqlContainerName}
+            fi
+        """
+        steps.sh(runCmd)
+    }
+
     void runContainer() {
         if (!containerName || !imageName || !hostPort || !dockerPort || !appType)
             steps.error("❌ Missing required parameters.")
@@ -202,23 +217,23 @@ class ApplicationBuilder implements Serializable {
         switch (appType) {
             case 'nginx':
                 steps.sh """
-                    docker run -d --name ${containerName} \
-                      --network spring-net \
-                      -p ${hostPort}:80 \
+                    docker run -d --name ${containerName} \\
+                      --network spring-net \\
+                      -p ${hostPort}:80 \\
                       ${imageName}:latest
                 """
                 break
             case 'springboot':
                 steps.sh """
-                    docker run -d --name ${containerName} \
-                      --network spring-net \
-                      -p ${hostPort}:8080 \
-                      ${imageName}:latest \
-                      --server.port=${dockerPort} \
-                      --server.address=0.0.0.0 \
-                      --spring.datasource.url=jdbc:mysql://mysql-db:3306/world \
-                      --spring.datasource.username=root \
-                      --spring.datasource.password=Thani@01 \
+                    docker run -d --name ${containerName} \\
+                      --network spring-net \\
+                      -p ${hostPort}:8080 \\
+                      ${imageName}:latest \\
+                      --server.port=${dockerPort} \\
+                      --server.address=0.0.0.0 \\
+                      --spring.datasource.url=jdbc:mysql://mysql-db:3306/world \\
+                      --spring.datasource.username=root \\
+                      --spring.datasource.password=Thani@01 \\
                       --spring.jpa.hibernate.ddl-auto=update
                 """
                 break
