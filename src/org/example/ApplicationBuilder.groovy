@@ -196,6 +196,7 @@ class ApplicationBuilder implements Serializable {
               docker run -d --name ${mysqlContainerName} --network spring-net \\
                 -e MYSQL_ROOT_PASSWORD=Thani@01 \\
                 -e MYSQL_DATABASE=world \\
+		-v mysql-db-data:/var/lib/mysql \\
                 mysql:8
             else
               echo "✅ ${mysqlContainerName} already exists."
