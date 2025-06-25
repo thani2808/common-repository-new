@@ -32,23 +32,23 @@ class ApplicationBuilder implements Serializable {
 
             appType = appTypeKey.toLowerCase()
             def isEureka = (appType == 'eureka')
-            def isNginx  = (appType == 'nginx')
+            def isNginx = (appType == 'nginx')
 
             hostPort = isEureka ? '8761' : isNginx ? '8081' : findAvailablePort(9001, 9010)
             if (!hostPort) steps.error("❌ No available port found between 9001–9010.")
 
-            imageName     = "${repoName.toLowerCase()}-image"
+            imageName = "${repoName.toLowerCase()}-image"
             containerName = "${repoName.toLowerCase()}-container"
-            dockerPort    = isEureka ? '8761' : '8080'
+            dockerPort = isEureka ? '8761' : '8080'
 
             // Export to env
-            steps.env.APP_TYPE       = appType
-            steps.env.PROJECT_DIR    = repoName
-            steps.env.IMAGE_NAME     = imageName
+            steps.env.APP_TYPE = appType
+            steps.env.PROJECT_DIR = repoName
+            steps.env.IMAGE_NAME = imageName
             steps.env.CONTAINER_NAME = containerName
-            steps.env.DOCKER_PORT    = dockerPort
-            steps.env.IS_EUREKA      = isEureka.toString()
-            steps.env.HOST_PORT      = hostPort
+            steps.env.DOCKER_PORT = dockerPort
+            steps.env.IS_EUREKA = isEureka.toString()
+            steps.env.HOST_PORT = hostPort
 
             steps.echo "✅ Environment initialized for '${repoName}'"
 
@@ -199,38 +199,32 @@ class ApplicationBuilder implements Serializable {
         steps.sh "docker rm '${containerName}' || true"
         steps.sh "docker build -t '${imageName}:latest' '${contextDir}'"
 
-	switch (appType) {
-	    case 'nginx':
-	        steps.sh """
-	            docker run -d --name ${containerName} \
-	              --network spring-net \
-	              -p ${hostPort}:80 \
-	              ${imageName}:latest
-	        """
-	        break
-
-	    case 'springboot':
-	        steps.sh """
-	            docker run -d --name ${containerName} \
-	              --network spring-net \
-	              -p ${hostPort}:8080 \
-	              ${imageName}:latest \
-	              --server.port=${dockerPort} --server.address=0.0.0.0
-	        """
-	        break
-
-	    case 'eureka':
-	        steps.sh """
+        switch (appType) {
+            case 'nginx':
+                steps.sh """
                     docker run -d --name ${containerName} \
                       --network spring-net \
-                      -p ${hostPort}:8761 \
+                      -p ${hostPort}:80 \
                       ${imageName}:latest
                 """
                 break
-
-	    default:
-	        steps.error("❌ Unsupported appType '${appType}'. Supported: springboot, nginx")
-	}
+            case 'springboot':
+                steps.sh """
+                    docker run -d --name ${containerName} \
+                      --network spring-net \
+                      -p ${hostPort}:8080 \
+                      ${imageName}:latest \
+                      --server.port=${dockerPort} \
+                      --server.address=0.0.0.0 \
+                      --spring.datasource.url=jdbc:mysql://mysql-db:3306/world \
+                      --spring.datasource.username=root \
+                      --spring.datasource.password=Thani@01 \
+                      --spring.jpa.hibernate.ddl-auto=update
+                """
+                break
+            default:
+                steps.error("❌ Unsupported appType '${appType}'. Supported: springboot, nginx")
+        }
     }
 
     void healthCheck() {
