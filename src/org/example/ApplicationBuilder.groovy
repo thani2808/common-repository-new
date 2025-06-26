@@ -101,6 +101,16 @@ class ApplicationBuilder implements Serializable {
         ])
     }
 
+    void preRunDebug() {
+        steps.echo "🔧 Pre-Run – env.APP_TYPE       = '${steps.env.APP_TYPE}'"
+        steps.echo "🔧 Pre-Run – env.IMAGE_NAME     = '${steps.env.IMAGE_NAME}'"
+        steps.echo "🔧 Pre-Run – env.CONTAINER_NAME = '${steps.env.CONTAINER_NAME}'"
+
+        if (!steps.env.APP_TYPE) {
+            steps.error "❌ Pre-Run check failed: APP_TYPE is null or not initialized!"
+        }
+    }
+
     void build(String branch) {
         steps.echo "⚙️ build(repo, branch) invoked"
         buildApp(appType, repoName, imageName)
