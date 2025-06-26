@@ -5,7 +5,6 @@ import groovy.json.JsonSlurper
 class ApplicationBuilder implements Serializable {
     def steps
 
-    // ✅ Reusable common variables
     String repoName
     String appType
     String imageName
@@ -17,7 +16,6 @@ class ApplicationBuilder implements Serializable {
         this.steps = steps
     }
 
-    // ========== InitEnv Logic ==========
     def initialize() {
         try {
             repoName = steps.params.REPO_NAME
@@ -103,16 +101,6 @@ class ApplicationBuilder implements Serializable {
         ])
     }
 
-    void preRunDebug() {
-        steps.echo "🔧 Pre-Run – env.APP_TYPE       = '${steps.env.APP_TYPE}'"
-        steps.echo "🔧 Pre-Run – env.IMAGE_NAME     = '${steps.env.IMAGE_NAME}'"
-        steps.echo "🔧 Pre-Run – env.CONTAINER_NAME = '${steps.env.CONTAINER_NAME}'"
-
-        if (!steps.env.APP_TYPE) {
-            steps.error "❌ Pre-Run check failed: APP_TYPE still null!"
-        }
-    }
-
     void build(String branch) {
         steps.echo "⚙️ build(repo, branch) invoked"
         buildApp(appType, repoName, imageName)
@@ -136,11 +124,8 @@ class ApplicationBuilder implements Serializable {
     private void buildSpringBootApp(String imageName) {
         def matches = steps.findFiles(glob: '**/pom.xml')
         if (!matches) steps.error("❌ pom.xml not found in project.")
-
         def pomPath = matches[0].path.replaceAll('\\\\', '/')
         def pomDir = pomPath.contains('/') ? pomPath.substring(0, pomPath.lastIndexOf('/')) : '.'
-        steps.echo "📂 Spring Boot context: ${pomDir}"
-
         steps.dir(pomDir) {
             runCommand('mvn clean install -DskipTests')
             runCommand('mvn package -DskipTests')
@@ -150,7 +135,6 @@ class ApplicationBuilder implements Serializable {
     }
 
     private void buildNodeApp(String imageName) {
-        steps.echo "📦 Node.js build"
         runCommand('npm install')
         runCommand('npm run build || echo \"⚠️ No build step defined.\"')
         checkDockerfileExists()
@@ -158,21 +142,18 @@ class ApplicationBuilder implements Serializable {
     }
 
     private void buildPythonApp(String imageName) {
-        steps.echo "🐍 Python app build"
         runCommand('pip install -r requirements.txt || echo \"⚠️ No requirements.txt or install failed.\"')
         checkDockerfileExists()
         runCommand("docker build -t ${imageName}:latest .")
     }
 
     private void buildRubyApp(String imageName) {
-        steps.echo "💎 Ruby app build"
         runCommand('bundle install || echo \"⚠️ bundle install failed or Gemfile missing.\"')
         checkDockerfileExists()
         runCommand("docker build -t ${imageName}:latest .")
     }
 
     private void buildStaticApp(String imageName, String appType) {
-        steps.echo "ℹ️ No build steps for static ${appType} app. Verifying Dockerfile..."
         checkDockerfileExists()
         runCommand("docker build -t ${imageName}:latest .")
     }
@@ -188,21 +169,25 @@ class ApplicationBuilder implements Serializable {
 
     void startMySQLContainer() {
         def mysqlContainerName = "mysql-db"
-        steps.echo "🛠 Checking if MySQL container '${mysqlContainerName}' exists..."
-        def runCmd = """
+        steps.echo "🔍 Checking MySQL volume and container..."
+        steps.sh """
+            if ! docker volume ls --format '{{.Name}}' | grep -q '^mysql-db-data\$'; then
+              echo "📦 Creating Docker volume mysql-db-data"
+              docker volume create mysql-db-data
+            fi
+
             if ! docker ps -a --format '{{.Names}}' | grep -q '^${mysqlContainerName}\$'; then
-              echo "📦 Creating new MySQL container..."
+              echo "🚀 Creating new MySQL container"
               docker run -d --name ${mysqlContainerName} --network spring-net \\
                 -e MYSQL_ROOT_PASSWORD=Thani@01 \\
                 -e MYSQL_DATABASE=world \\
                 -v mysql-db-data:/var/lib/mysql \\
                 mysql:8
             else
-              echo "✅ ${mysqlContainerName} already exists."
+              echo "🔄 Starting existing MySQL container"
               docker start ${mysqlContainerName}
             fi
         """
-        steps.sh(runCmd)
     }
 
     void runContainer() {
@@ -223,42 +208,21 @@ class ApplicationBuilder implements Serializable {
             done
         """
 
-        def contextDir = steps.sh(
-            script: "find . -name Dockerfile -print -quit",
-            returnStdout: true
-        ).trim()?.replaceAll('/Dockerfile$', '')
-        if (!contextDir) steps.error("❌ Dockerfile not found.")
-
         steps.sh "docker stop '${containerName}' || true"
         steps.sh "docker rm '${containerName}' || true"
-        steps.sh "docker build -t '${imageName}:latest' '${contextDir}'"
 
-        switch (appType) {
-            case 'nginx':
-                steps.sh """
-                    docker run -d --name ${containerName} \\
-                      --network spring-net \\
-                      -p ${hostPort}:80 \\
-                      ${imageName}:latest
-                """
-                break
-            case 'springboot':
-                steps.sh """
-                    docker run -d --name ${containerName} \\
-                      --network spring-net \\
-                      -p ${hostPort}:8080 \\
-                      ${imageName}:latest \\
-                      --server.port=${dockerPort} \\
-                      --server.address=0.0.0.0 \\
-                      --spring.datasource.url=jdbc:mysql://mysql-db:3306/world \\
-                      --spring.datasource.username=root \\
-                      --spring.datasource.password=Thani@01 \\
-                      --spring.jpa.hibernate.ddl-auto=update
-                """
-                break
-            default:
-                steps.error("❌ Unsupported appType '${appType}'. Supported: springboot, nginx")
-        }
+        steps.sh """
+            docker run -d --name ${containerName} \\
+              --network spring-net \\
+              -p ${hostPort}:${dockerPort} \\
+              ${imageName}:latest \\
+              --server.port=${dockerPort} \\
+              --server.address=0.0.0.0 \\
+              --spring.datasource.url=jdbc:mysql://mysql-db:3306/world \\
+              --spring.datasource.username=root \\
+              --spring.datasource.password=Thani@01 \\
+              --spring.jpa.hibernate.ddl-auto=update
+        """
     }
 
     void healthCheck() {
