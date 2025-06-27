@@ -182,24 +182,27 @@ class ApplicationBuilder implements Serializable {
 
     void startMySQLContainer() {
         def mysqlContainerName = "mysql-db"
-        steps.echo "🔍 Checking MySQL volume and container..."
+        steps.echo "🔍 Checking MySQL containers and volume..."
+
         steps.sh '''
+            echo "🔎 Cleaning up old MySQL containers"
+            OLD_MYSQL=$(docker ps -a --filter "ancestor=mysql" --format "{{.Names}}" | grep "^mysql-db$" || true)
+            if [ ! -z "$OLD_MYSQL" ]; then
+                docker stop mysql-db || true
+                docker rm mysql-db || true
+            fi
+
+            echo "📦 Ensuring MySQL volume exists"
             if ! docker volume ls --format '{{.Name}}' | grep -q '^mysql-db-data$'; then
-              echo "📦 Creating Docker volume mysql-db-data"
               docker volume create mysql-db-data
             fi
 
-            if ! docker ps -a --format '{{.Names}}' | grep -q '^mysql-db$'; then
-              echo "🚀 Creating new MySQL container"
-              docker run -d --name mysql-db \
+            echo "🚀 Starting fresh MySQL container on host port 3306"
+            docker run -d --name mysql-db \
                 -e MYSQL_ROOT_PASSWORD=Thani@01 \
                 -v mysql-db-data:/var/lib/mysql \
                 -p 3306:3306 \
                 mysql:8
-            else
-              echo "🔄 Starting existing MySQL container"
-              docker start mysql-db
-            fi
         '''
     }
 
