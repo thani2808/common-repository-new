@@ -195,9 +195,9 @@ class ApplicationBuilder implements Serializable {
 
             echo "🚀 Starting fresh MySQL container on host port 3306"
             docker run -d --name mysql-db \
-                -e MYSQL_ROOT_PASSWORD=Thani@01 \
+                --network spring-net \
+		-e MYSQL_ROOT_PASSWORD=Thani@01 \
                 -v mysql-db-data:/var/lib/mysql \
-                -p 3306:3306 \
                 mysql:8
         '''
     }
@@ -225,7 +225,8 @@ class ApplicationBuilder implements Serializable {
 
         steps.sh """
             docker run -d --name ${containerName} \
-              -p ${hostPort}:${dockerPort} \
+              --network spring-net \
+	      -p ${hostPort}:${dockerPort} \
               ${imageName}:latest \
               --server.port=${dockerPort} \
               --server.address=0.0.0.0 \
