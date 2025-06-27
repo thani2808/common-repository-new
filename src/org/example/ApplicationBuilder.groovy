@@ -185,12 +185,8 @@ class ApplicationBuilder implements Serializable {
         steps.echo "🔍 Checking MySQL containers and volume..."
 
         steps.sh '''
-            echo "🔎 Cleaning up old MySQL containers"
-            OLD_MYSQL=$(docker ps -a --filter "ancestor=mysql" --format "{{.Names}}" | grep "^mysql-db$" || true)
-            if [ ! -z "$OLD_MYSQL" ]; then
-                docker stop mysql-db || true
-                docker rm mysql-db || true
-            fi
+            docker stop mysql-db || true
+            docker rm mysql-db || true
 
             echo "📦 Ensuring MySQL volume exists"
             if ! docker volume ls --format '{{.Name}}' | grep -q '^mysql-db-data$'; then
