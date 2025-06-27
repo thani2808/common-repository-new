@@ -217,7 +217,7 @@ class ApplicationBuilder implements Serializable {
             runCommand = """
                 docker run -d --name ${containerName} \\
                   --network spring-net \\
-                  -p ${hostPort}:${dockerPort} \\
+                  -p ${hostPort}:8080 \\
                   ${imageName}:latest \\
                   --server.port=${dockerPort} \\
                   --server.address=0.0.0.0 \\
@@ -230,7 +230,7 @@ class ApplicationBuilder implements Serializable {
             runCommand = """
                 docker run -d --name ${containerName} \\
                   --network spring-net \\
-                  -p ${hostPort}:${dockerPort} \\
+                  -p ${hostPort}:80 \\
                   ${imageName}:latest
             """
         } else {
