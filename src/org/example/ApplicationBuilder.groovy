@@ -208,20 +208,6 @@ class ApplicationBuilder implements Serializable {
         if (!containerName || !imageName || !hostPort || !dockerPort || !appType)
             steps.error("❌ Missing required parameters.")
 
-        startMySQLContainer()
-
-        steps.sh '''
-            echo "⏳ Waiting for MySQL to be ready..."
-            for i in {1..10}; do
-              if docker exec mysql-db mysqladmin ping -h localhost -pThani@01 --silent; then
-                echo "✅ MySQL is ready."
-                break
-              fi
-              echo "⏳ Waiting for MySQL... attempt $i"
-              sleep 5
-            done
-        '''
-
         steps.sh "docker stop '${containerName}' || true"
         steps.sh "docker rm '${containerName}' || true"
 
