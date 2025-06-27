@@ -218,7 +218,7 @@ class ApplicationBuilder implements Serializable {
               ${imageName}:latest \
               --server.port=${dockerPort} \
               --server.address=0.0.0.0 \
-              --spring.datasource.url=jdbc:mysql://localhost:3306/world \
+              --spring.datasource.url=jdbc:mysql://host.docker.internal:3306/world \
               --spring.datasource.username=root \
               --spring.datasource.password=Thani@01 \
               --spring.jpa.hibernate.ddl-auto=update
