@@ -89,19 +89,21 @@ class ApplicationBuilder implements Serializable {
     }
 
     void checkout(String branch = 'feature') {
-        steps.checkout([
-            $class: 'GitSCM',
-            branches: [[name: "*/${branch}"]],
-            extensions: [[
-                $class: 'RelativeTargetDirectory',
-                relativeTargetDir: "target-repo/${repoName}"
-            ]],
-            userRemoteConfigs: [[
-                url: "git@github.com:thani2808/${repoName}.git",
-                credentialsId: 'private-key-jenkins',
-                refspec: "+refs/heads/${branch}:refs/remotes/origin/${branch}"
-            ]]
-        ])
+        steps.withEnv(['GIT_CURL_VERBOSE=1']) {
+            steps.checkout([
+                $class: 'GitSCM',
+                branches: [[name: "*/${branch}"]],
+                extensions: [[
+                    $class: 'RelativeTargetDirectory',
+                    relativeTargetDir: "target-repo/${repoName}"
+                ]],
+                userRemoteConfigs: [[
+                    url: "git@github.com:thani2808/${repoName}.git",
+                    credentialsId: 'private-key-jenkins',
+                    refspec: "+refs/heads/${branch}:refs/remotes/origin/${branch}"
+                ]]
+            ])
+        }
     }
 
     void preRunDebug() {
