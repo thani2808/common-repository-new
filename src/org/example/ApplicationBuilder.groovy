@@ -39,6 +39,8 @@ class ApplicationBuilder implements Serializable {
             containerName = "${repoName.toLowerCase()}-container"
             dockerPort = isEureka ? '8761' : '8080'
 
+            def envStage = steps.params.ENV_STAGE ?: 'dev'
+
             steps.env.APP_TYPE = appType
             steps.env.PROJECT_DIR = repoName
             steps.env.IMAGE_NAME = imageName
@@ -46,8 +48,9 @@ class ApplicationBuilder implements Serializable {
             steps.env.DOCKER_PORT = dockerPort
             steps.env.IS_EUREKA = isEureka.toString()
             steps.env.HOST_PORT = hostPort
+            steps.env.ENV_STAGE = envStage
 
-            steps.echo "✅ Environment initialized for '${repoName}'"
+            steps.echo "✅ Environment initialized for '${repoName}' in '${envStage}' mode"
         } catch (Exception e) {
             steps.error("❌ InitEnv failed: ${e.message ?: e.toString()}")
         }
@@ -180,24 +183,24 @@ class ApplicationBuilder implements Serializable {
     void startMySQLContainer() {
         def mysqlContainerName = "mysql-db"
         steps.echo "🔍 Checking MySQL volume and container..."
-        steps.sh """
-            if ! docker volume ls --format '{{.Name}}' | grep -q '^mysql-db-data\$'; then
+        steps.sh '''
+            if ! docker volume ls --format '{{.Name}}' | grep -q '^mysql-db-data$'; then
               echo "📦 Creating Docker volume mysql-db-data"
               docker volume create mysql-db-data
             fi
 
-            if ! docker ps -a --format '{{.Names}}' | grep -q '^${mysqlContainerName}\$'; then
+            if ! docker ps -a --format '{{.Names}}' | grep -q '^mysql-db$'; then
               echo "🚀 Creating new MySQL container"
-              docker run -d --name ${mysqlContainerName} --network spring-net \\
-                -e MYSQL_ROOT_PASSWORD=Thani@01 \\
-                -e MYSQL_DATABASE=world \\
-                -v mysql-db-data:/var/lib/mysql \\
+              docker run -d --name mysql-db \
+                -e MYSQL_ROOT_PASSWORD=Thani@01 \
+                -v mysql-db-data:/var/lib/mysql \
+                -p 3306:3306 \
                 mysql:8
             else
               echo "🔄 Starting existing MySQL container"
-              docker start ${mysqlContainerName}
+              docker start mysql-db
             fi
-        """
+        '''
     }
 
     void runContainer() {
@@ -206,31 +209,30 @@ class ApplicationBuilder implements Serializable {
 
         startMySQLContainer()
 
-        steps.sh """
+        steps.sh '''
             echo "⏳ Waiting for MySQL to be ready..."
             for i in {1..10}; do
               if docker exec mysql-db mysqladmin ping -h localhost -pThani@01 --silent; then
                 echo "✅ MySQL is ready."
                 break
               fi
-              echo "⏳ Waiting for MySQL... attempt \$i"
+              echo "⏳ Waiting for MySQL... attempt $i"
               sleep 5
             done
-        """
+        '''
 
         steps.sh "docker stop '${containerName}' || true"
         steps.sh "docker rm '${containerName}' || true"
 
         steps.sh """
-            docker run -d --name ${containerName} \\
-              --network spring-net \\
-              -p ${hostPort}:${dockerPort} \\
-              ${imageName}:latest \\
-              --server.port=${dockerPort} \\
-              --server.address=0.0.0.0 \\
-              --spring.datasource.url=jdbc:mysql://mysql-db:3306/world \\
-              --spring.datasource.username=root \\
-              --spring.datasource.password=Thani@01 \\
+            docker run -d --name ${containerName} \
+              -p ${hostPort}:${dockerPort} \
+              ${imageName}:latest \
+              --server.port=${dockerPort} \
+              --server.address=0.0.0.0 \
+              --spring.datasource.url=jdbc:mysql://localhost:3306/world \
+              --spring.datasource.username=root \
+              --spring.datasource.password=Thani@01 \
               --spring.jpa.hibernate.ddl-auto=update
         """
     }
