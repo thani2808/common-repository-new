@@ -211,15 +211,30 @@ class ApplicationBuilder implements Serializable {
         steps.sh "docker stop '${containerName}' || true"
         steps.sh "docker rm '${containerName}' || true"
 
-        def runCommand = """
-            docker run -d --name ${containerName} \\
-              --network spring-net \\
-              -p ${hostPort}:${dockerPort} \\
-              ${imageName}:latest
-        """
+        def runCommand = ""
 
         if (appType == "springboot") {
-            runCommand += " \\\n  --server.port=${dockerPort} \\\n  --server.address=0.0.0.0 \\\n  --spring.datasource.url=jdbc:mysql://host.docker.internal:3306/world \\\n  --spring.datasource.username=root \\\n  --spring.datasource.password=Thani@01 \\\n  --spring.jpa.hibernate.ddl-auto=update"
+            runCommand = """
+                docker run -d --name ${containerName} \\
+                  --network spring-net \\
+                  -p ${hostPort}:${dockerPort} \\
+                  ${imageName}:latest \\
+                  --server.port=${dockerPort} \\
+                  --server.address=0.0.0.0 \\
+                  --spring.datasource.url=jdbc:mysql://host.docker.internal:3306/world \\
+                  --spring.datasource.username=root \\
+                  --spring.datasource.password=Thani@01 \\
+                  --spring.jpa.hibernate.ddl-auto=update
+            """
+        } else if (appType == "nginx") {
+            runCommand = """
+                docker run -d --name ${containerName} \\
+                  --network spring-net \\
+                  -p ${hostPort}:${dockerPort} \\
+                  ${imageName}:latest
+            """
+        } else {
+            steps.error("❌ Unsupported appType: ${appType}")
         }
 
         steps.sh(runCommand)
