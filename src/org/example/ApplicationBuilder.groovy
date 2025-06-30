@@ -208,36 +208,44 @@ class ApplicationBuilder implements Serializable {
         if (!containerName || !imageName || !hostPort || !dockerPort || !appType)
             steps.error("❌ Missing required parameters.")
 
-        steps.sh "docker stop '${containerName}' || true"
-        steps.sh "docker rm '${containerName}' || true"
+        def stopCmd = "docker stop ${containerName} || true"
+        def rmCmd = "docker rm ${containerName} || true"
+
+        if (steps.isUnix()) {
+            steps.sh stopCmd
+            steps.sh rmCmd
+        } else {
+            steps.bat stopCmd
+            steps.bat rmCmd
+        }
 
         def runCommand = ""
 
         if (appType == "springboot") {
-            runCommand = """
-                docker run -d --name ${containerName} \\
-                  --network spring-net \\
-                  -p ${hostPort}:8080 \\
-                  ${imageName}:latest \\
-                  --server.port=${dockerPort} \\
-                  --server.address=0.0.0.0 \\
-                  --spring.datasource.url=jdbc:mysql://host.docker.internal:3306/world \\
-                  --spring.datasource.username=root \\
-                  --spring.datasource.password=Thani@01 \\
-                  --spring.jpa.hibernate.ddl-auto=update
-            """
+            runCommand = "docker run -d --name ${containerName} " +
+                         "--network spring-net " +
+                         "-p ${hostPort}:8080 " +
+                         "${imageName}:latest " +
+                         "--server.port=${dockerPort} " +
+                         "--server.address=0.0.0.0 " +
+                         "--spring.datasource.url=jdbc:mysql://host.docker.internal:3306/world " +
+                         "--spring.datasource.username=root " +
+                         "--spring.datasource.password=Thani@01 " +
+                         "--spring.jpa.hibernate.ddl-auto=update"
         } else if (appType == "nginx") {
-            runCommand = """
-                docker run -d --name ${containerName} \\
-                  --network spring-net \\
-                  -p ${hostPort}:80 \\
-                  ${imageName}:latest
-            """
+            runCommand = "docker run -d --name ${containerName} " +
+                         "--network spring-net " +
+                         "-p ${hostPort}:80 " +
+                         "${imageName}:latest"
         } else {
             steps.error("❌ Unsupported appType: ${appType}")
         }
 
-        steps.sh(runCommand)
+        if (steps.isUnix()) {
+            steps.sh runCommand
+        } else {
+            steps.bat runCommand
+        }
     }
 
     void healthCheck() {
