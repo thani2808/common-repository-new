@@ -204,49 +204,52 @@ class ApplicationBuilder implements Serializable {
         '''
     }
 
-    void runContainer() {
-        if (!containerName || !imageName || !hostPort || !dockerPort || !appType)
-            steps.error("❌ Missing required parameters.")
+	void runContainer() {
+    	if (!containerName || !imageName || !hostPort || !dockerPort || !appType)
+        	steps.error("❌ Missing required parameters.")
 
-        def stopCmd = "docker stop ${containerName} || true"
-        def rmCmd = "docker rm ${containerName} || true"
+	    def stopCmdUnix = "docker stop ${containerName} || true"
+    	def stopCmdWin  = "docker stop ${containerName} || exit 0"
 
-        if (steps.isUnix()) {
-            steps.sh stopCmd
-            steps.sh rmCmd
-        } else {
-            steps.bat stopCmd
-            steps.bat rmCmd
-        }
+    	def rmCmdUnix = "docker rm ${containerName} || true"
+    	def rmCmdWin  = "docker rm ${containerName} || exit 0"
 
-        def runCommand = ""
+    	if (steps.isUnix()) {
+        	steps.sh stopCmdUnix
+        	steps.sh rmCmdUnix
+    	} else {
+        	steps.bat stopCmdWin
+        	steps.bat rmCmdWin
+    	}
 
-        if (appType == "springboot") {
-            runCommand = "docker run -d --name ${containerName} " +
-                         "--network spring-net " +
-                         "-p ${hostPort}:8080 " +
-                         "${imageName}:latest " +
-                         "--server.port=${dockerPort} " +
-                         "--server.address=0.0.0.0 " +
-                         "--spring.datasource.url=jdbc:mysql://host.docker.internal:3306/world " +
-                         "--spring.datasource.username=root " +
-                         "--spring.datasource.password=Thani@01 " +
-                         "--spring.jpa.hibernate.ddl-auto=update"
-        } else if (appType == "nginx") {
-            runCommand = "docker run -d --name ${containerName} " +
-                         "--network spring-net " +
-                         "-p ${hostPort}:80 " +
-                         "${imageName}:latest"
-        } else {
-            steps.error("❌ Unsupported appType: ${appType}")
-        }
+    	def runCommand = ""
 
-        if (steps.isUnix()) {
-            steps.sh runCommand
-        } else {
-            steps.bat runCommand
-        }
-    }
+    	if (appType == "springboot") {
+        	runCommand = "docker run -d --name ${containerName} " +
+                     	"--network spring-net " +
+                     	"-p ${hostPort}:8080 " +
+                     	"${imageName}:latest " +
+                     	"--server.port=${dockerPort} " +
+                     	"--server.address=0.0.0.0 " +
+                     	"--spring.datasource.url=jdbc:mysql://host.docker.internal:3306/world " +
+                     	"--spring.datasource.username=root " +
+                     	"--spring.datasource.password=Thani@01 " +
+                     	"--spring.jpa.hibernate.ddl-auto=update"
+    	} else if (appType == "nginx") {
+        	runCommand = "docker run -d --name ${containerName} " +
+                     	"--network spring-net " +
+                     	"-p ${hostPort}:80 " +
+                     	"${imageName}:latest"
+    	} else {
+        	steps.error("❌ Unsupported appType: ${appType}")
+    	}
+
+    	if (steps.isUnix()) {
+        	steps.sh runCommand
+    	} else {
+        	steps.bat runCommand
+    	}
+	}
 
     void healthCheck() {
         def endpoint = getHealthEndpoint(appType)
