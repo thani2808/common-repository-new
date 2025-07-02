@@ -151,19 +151,19 @@ class ApplicationBuilder implements Serializable {
 
     private void buildNodeApp(String imageName) {
         runCommand('npm install')
-        runCommand('npm run build || echo \"⚠️ No build step defined.\"')
+        runCommand('npm run build || echo "⚠️ No build step defined."')
         checkDockerfileExists()
         runCommand("docker build -t ${imageName}:latest .")
     }
 
     private void buildPythonApp(String imageName) {
-        runCommand('pip install -r requirements.txt || echo \"⚠️ No requirements.txt or install failed.\"')
+        runCommand('pip install -r requirements.txt || echo "⚠️ No requirements.txt or install failed."')
         checkDockerfileExists()
         runCommand("docker build -t ${imageName}:latest .")
     }
 
     private void buildRubyApp(String imageName) {
-        runCommand('bundle install || echo \"⚠️ bundle install failed or Gemfile missing.\"')
+        runCommand('bundle install || echo "⚠️ bundle install failed or Gemfile missing."')
         checkDockerfileExists()
         runCommand("docker build -t ${imageName}:latest .")
     }
@@ -190,7 +190,7 @@ class ApplicationBuilder implements Serializable {
             docker stop mysql-db || true
             docker rm mysql-db || true
 
-            echo "📦 Ensuring MySQL volume exists"
+            echo "📆 Ensuring MySQL volume exists"
             if ! docker volume ls --format '{{.Name}}' | grep -q '^mysql-db-data$'; then
               docker volume create mysql-db-data
             fi
@@ -198,80 +198,74 @@ class ApplicationBuilder implements Serializable {
             echo "🚀 Starting fresh MySQL container on host port 3306"
             docker run -d --name mysql-db \
                 --network spring-net \
-		-e MYSQL_ROOT_PASSWORD=Thani@01 \
+                -e MYSQL_ROOT_PASSWORD=Thani@01 \
                 -v mysql-db-data:/var/lib/mysql \
                 mysql:8
         '''
     }
 
-	void runContainer() {
-    	if (!containerName || !imageName || !hostPort || !dockerPort || !appType)
-        	steps.error("❌ Missing required parameters.")
+    void runContainer() {
+        if (!containerName || !imageName || !hostPort || !dockerPort || !appType)
+            steps.error("❌ Missing required parameters.")
 
-	    def stopCmdUnix = "docker stop ${containerName} || true"
-    	def stopCmdWin  = "docker stop ${containerName} || exit 0"
+        def stopCmd = steps.isUnix() ? "docker stop ${containerName} || true" : "docker stop ${containerName} || exit 0"
+        def rmCmd = steps.isUnix() ? "docker rm ${containerName} || true" : "docker rm ${containerName} || exit 0"
 
-    	def rmCmdUnix = "docker rm ${containerName} || true"
-    	def rmCmdWin  = "docker rm ${containerName} || exit 0"
+        runCommand(stopCmd)
+        runCommand(rmCmd)
 
-    	if (steps.isUnix()) {
-        	steps.sh stopCmdUnix
-        	steps.sh rmCmdUnix
-    	} else {
-        	steps.bat stopCmdWin
-        	steps.bat rmCmdWin
-    	}
+        def runCmd = (appType == "springboot") ?
+            "docker run -d --name ${containerName} --network spring-net -p ${hostPort}:8080 ${imageName}:latest --server.port=${dockerPort} --server.address=0.0.0.0 --spring.datasource.url=jdbc:mysql://host.docker.internal:3306/world --spring.datasource.username=root --spring.datasource.password=Thani@01 --spring.jpa.hibernate.ddl-auto=update" :
+            (appType == "nginx") ?
+            "docker run -d --name ${containerName} --network spring-net -p ${hostPort}:80 ${imageName}:latest" :
+            steps.error("❌ Unsupported appType: ${appType}")
 
-    	def runCommand = ""
-
-    	if (appType == "springboot") {
-        	runCommand = "docker run -d --name ${containerName} " +
-                     	"--network spring-net " +
-                     	"-p ${hostPort}:8080 " +
-                     	"${imageName}:latest " +
-                     	"--server.port=${dockerPort} " +
-                     	"--server.address=0.0.0.0 " +
-                     	"--spring.datasource.url=jdbc:mysql://host.docker.internal:3306/world " +
-                     	"--spring.datasource.username=root " +
-                     	"--spring.datasource.password=Thani@01 " +
-                     	"--spring.jpa.hibernate.ddl-auto=update"
-    	} else if (appType == "nginx") {
-        	runCommand = "docker run -d --name ${containerName} " +
-                     	"--network spring-net " +
-                     	"-p ${hostPort}:80 " +
-                     	"${imageName}:latest"
-    	} else {
-        	steps.error("❌ Unsupported appType: ${appType}")
-    	}
-
-    	if (steps.isUnix()) {
-        	steps.sh runCommand
-    	} else {
-        	steps.bat runCommand
-    	}
-	}
+        runCommand(runCmd)
+    }
 
     void healthCheck() {
-        def endpoint = getHealthEndpoint(appType)
-        def url = "http://localhost:${hostPort}${endpoint}"
+        if (!containerName || !appType || !hostPort) {
+            steps.echo "⚠️ Skipping health check due to missing configuration."
+            return
+        }
 
+        String url = "http://localhost:${hostPort}/"
         steps.echo "⏳ Starting health check for '${appType}' app on ${url}"
-        steps.sh "sleep 15"
 
-        steps.sh """
-            for i in \$(seq 1 10); do
-                CODE=\$(curl -s -o /dev/null -w '%{http_code}' ${url} || echo 000)
-                echo "Attempt \$i: HTTP \$CODE"
-                if [[ "\$CODE" == "200" || "\$CODE" == "403" || "\$CODE" == "302" ]]; then
-                    echo "✅ Health check passed with code \$CODE"
-                    exit 0
-                fi
-                sleep 3
-            done
-            echo "❌ Health check failed for ${containerName} (${appType})"
-            docker logs ${containerName} || true
-            exit 1
-        """
+        try {
+            steps.sleep(time: 10, unit: 'SECONDS')
+
+            def success = false
+            for (int i = 1; i <= 10; i++) {
+                def code
+                try {
+                    code = steps.isUnix() ?
+                        steps.sh(script: "curl -s -o /dev/null -w \"%{http_code}\" ${url}", returnStdout: true).trim() :
+                        steps.bat(script: "curl -s -o NUL -w \"%%{http_code}\" ${url}", returnStdout: true).trim()
+                } catch (Exception e) {
+                    code = "000"
+                }
+
+                steps.echo "🔁 Attempt $i: HTTP ${code}"
+                if (["200", "403", "302"].contains(code)) {
+                    steps.echo "✅ Health check passed with code ${code}"
+                    success = true
+                    break
+                }
+                steps.sleep(time: 3, unit: 'SECONDS')
+            }
+
+            if (!success) throw new Exception("Service did not become healthy within timeout.")
+
+        } catch (Exception e) {
+            steps.echo "❌ Health check failed for container '${containerName}' (${appType})."
+            try {
+                runCommand("docker logs ${containerName} || true")
+            } catch (logError) {
+                steps.echo "⚠️ Unable to fetch logs for ${containerName}"
+            }
+            steps.error("🚫 Health check failed: ${e.message}")
+        }
     }
 
     private String getHealthEndpoint(String appType) {
