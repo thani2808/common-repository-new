@@ -223,50 +223,64 @@ class ApplicationBuilder implements Serializable {
         runCommand(runCmd)
     }
 
-    void healthCheck() {
-        if (!containerName || !appType || !hostPort) {
-            steps.echo "⚠️ Skipping health check due to missing configuration."
-            return
-        }
-
-        String url = "http://localhost:${hostPort}/"
-        steps.echo "⏳ Starting health check for '${appType}' app on ${url}"
-
-        try {
-            steps.sleep(time: 10, unit: 'SECONDS')
-
-            def success = false
-            for (int i = 1; i <= 10; i++) {
-                def code
-                try {
-                    code = steps.isUnix() ?
-                        steps.sh(script: "curl -s -o /dev/null -w \"%{http_code}\" ${url}", returnStdout: true).trim() :
-                        steps.bat(script: "curl -s -o NUL -w \"%%{http_code}\" ${url}", returnStdout: true).trim()
-                } catch (Exception e) {
-                    code = "000"
-                }
-
-                steps.echo "🔁 Attempt $i: HTTP ${code}"
-                if (["200", "403", "302"].contains(code)) {
-                    steps.echo "✅ Health check passed with code ${code}"
-                    success = true
-                    break
-                }
-                steps.sleep(time: 3, unit: 'SECONDS')
-            }
-
-            if (!success) throw new Exception("Service did not become healthy within timeout.")
-
-        } catch (Exception e) {
-            steps.echo "❌ Health check failed for container '${containerName}' (${appType})."
-            try {
-                runCommand("docker logs ${containerName} || true")
-            } catch (logError) {
-                steps.echo "⚠️ Unable to fetch logs for ${containerName}"
-            }
-            steps.error("🚫 Health check failed: ${e.message}")
-        }
+void healthCheck() {
+    if (!containerName || !appType || !hostPort) {
+        steps.echo "⚠️ Skipping health check due to missing configuration."
+        return
     }
+
+    String url = "http://localhost:${hostPort}/"
+    steps.echo "⏳ Starting health check for '${appType}' app on ${url}"
+
+    try {
+        steps.sleep(time: 10, unit: 'SECONDS') // Allow container startup
+
+        def success = false
+        for (int i = 1; i <= 10; i++) {
+            def code = "000"
+            try {
+                if (steps.isUnix()) {
+                    code = steps.sh(
+                        script: "curl -s -o /dev/null -w \"%{http_code}\" ${url}",
+                        returnStdout: true
+                    ).trim()
+                } else {
+                    def raw = steps.bat(
+                        script: "curl -s -o NUL -w \"%%{http_code}\" ${url}",
+                        returnStdout: true
+                    )
+                    code = extractStatusCode(raw)
+                }
+            } catch (Exception ignored) {
+                // leave code as "000"
+            }
+
+            steps.echo "🔁 Attempt ${i}: HTTP ${code}"
+            if (["200", "403", "302"].contains(code)) {
+                steps.echo "✅ Health check passed with code ${code}"
+                success = true
+                break
+            }
+            steps.sleep(time: 3, unit: 'SECONDS')
+        }
+
+        if (!success) throw new Exception("Service did not become healthy within timeout.")
+
+    } catch (Exception e) {
+        steps.echo "❌ Health check failed for container '${containerName}' (${appType})."
+        try {
+            runCommand("docker logs ${containerName} || true")
+        } catch (logError) {
+            steps.echo "⚠️ Unable to fetch logs for ${containerName}"
+        }
+        steps.error("🚫 Health check failed: ${e.message}")
+    }
+}
+
+private String extractStatusCode(String output) {
+    def lines = output.readLines().findAll { it.trim() }
+    return lines[-1]?.trim()
+}
 
     private String getHealthEndpoint(String appType) {
         switch (appType?.toLowerCase()) {
