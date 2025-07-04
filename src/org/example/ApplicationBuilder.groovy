@@ -179,7 +179,12 @@ class ApplicationBuilder implements Serializable {
     }
 
     private void runCommand(String command) {
-        if (steps.isUnix()) steps.sh command else steps.bat command
+        steps.echo "▶️ Running command: ${command}"
+        if (steps.isUnix()) {
+            steps.sh(script: command)
+        } else {
+            steps.bat(script: command)
+        }
     }
 
     void startMySQLContainer() {
