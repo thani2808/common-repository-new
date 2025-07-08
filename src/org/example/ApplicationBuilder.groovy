@@ -88,23 +88,22 @@ class ApplicationBuilder implements Serializable {
         steps.cleanWs()
     }
 
-    void checkout(String branch = 'feature') {
-        steps.withEnv(['GIT_CURL_VERBOSE=1']) {
-            steps.checkout([
-                $class: 'GitSCM',
-                branches: [[name: "*/${branch}"]],
-                extensions: [[
-                    $class: 'RelativeTargetDirectory',
-                    relativeTargetDir: "target-repo/${repoName}"
-                ]],
-                userRemoteConfigs: [[
-                    url: "git@github.com:thani2808/${repoName}.git",
-                    credentialsId: 'private-key-jenkins',
-                    refspec: "+refs/heads/${branch}:refs/remotes/origin/${branch}"
-                ]]
-            ])
-        }
-    }
+	void checkout(String branch = 'feature', int timeout = 20) {
+    	steps.checkout([
+        	$class: 'GitSCM',
+        	branches: [[name: "*/${branch}"]],
+        	doGenerateSubmoduleConfigurations: false,
+        	extensions: [
+            	[$class: 'CloneOption', timeout: timeout, shallow: false, noTags: false, reference: '', depth: 0],
+            	[$class: 'RelativeTargetDirectory', relativeTargetDir: "target-repo/${repoName}"]
+        	],
+        	userRemoteConfigs: [[
+            	url: "git@github.com:thani2808/${repoName}.git",
+            	credentialsId: 'private-key-jenkins',
+            	refspec: "+refs/heads/${branch}:refs/remotes/origin/${branch}"
+        	]]
+    	])
+	}
 
     void preRunDebug() {
         steps.echo "🔧 Pre-Run – env.APP_TYPE       = '${steps.env.APP_TYPE}'"
@@ -188,10 +187,7 @@ class ApplicationBuilder implements Serializable {
     }
 
     void startMySQLContainer() {
-        def mysqlContainerName = "mysql-db"
-        steps.echo "🔍 Checking MySQL containers and volume..."
-
-        steps.sh '''
+        def shellScript = steps.isUnix() ? '''
             docker stop mysql-db || true
             docker rm mysql-db || true
 
@@ -206,7 +202,21 @@ class ApplicationBuilder implements Serializable {
                 -e MYSQL_ROOT_PASSWORD=Thani@01 \
                 -v mysql-db-data:/var/lib/mysql \
                 mysql:8
+        ''' : '''
+            docker stop mysql-db || exit 0
+            docker rm mysql-db || exit 0
+
+            echo "📆 Ensuring MySQL volume exists"
+            docker volume ls --format "{{.Name}}" | findstr "^mysql-db-data$" >nul || docker volume create mysql-db-data
+
+            echo "🚀 Starting fresh MySQL container on host port 3306"
+            docker run -d --name mysql-db ^
+                --network spring-net ^
+                -e MYSQL_ROOT_PASSWORD=Thani@01 ^
+                -v mysql-db-data:/var/lib/mysql ^
+                mysql:8
         '''
+        runCommand(shellScript)
     }
 
     void runContainer() {
@@ -228,64 +238,64 @@ class ApplicationBuilder implements Serializable {
         runCommand(runCmd)
     }
 
-void healthCheck() {
-    if (!containerName || !appType || !hostPort) {
-        steps.echo "⚠️ Skipping health check due to missing configuration."
-        return
-    }
-
-    String url = "http://localhost:${hostPort}/"
-    steps.echo "⏳ Starting health check for '${appType}' app on ${url}"
-
-    try {
-        steps.sleep(time: 10, unit: 'SECONDS') // Allow container startup
-
-        def success = false
-        for (int i = 1; i <= 10; i++) {
-            def code = "000"
-            try {
-                if (steps.isUnix()) {
-                    code = steps.sh(
-                        script: "curl -s -o /dev/null -w \"%{http_code}\" ${url}",
-                        returnStdout: true
-                    ).trim()
-                } else {
-                    def raw = steps.bat(
-                        script: "curl -s -o NUL -w \"%%{http_code}\" ${url}",
-                        returnStdout: true
-                    )
-                    code = extractStatusCode(raw)
-                }
-            } catch (Exception ignored) {
-                // leave code as "000"
-            }
-
-            steps.echo "🔁 Attempt ${i}: HTTP ${code}"
-            if (["200", "403", "302"].contains(code)) {
-                steps.echo "✅ Health check passed with code ${code}"
-                success = true
-                break
-            }
-            steps.sleep(time: 3, unit: 'SECONDS')
+    void healthCheck() {
+        if (!containerName || !appType || !hostPort) {
+            steps.echo "⚠️ Skipping health check due to missing configuration."
+            return
         }
 
-        if (!success) throw new Exception("Service did not become healthy within timeout.")
+        String url = "http://localhost:${hostPort}/"
+        steps.echo "⏳ Starting health check for '${appType}' app on ${url}"
 
-    } catch (Exception e) {
-        steps.echo "❌ Health check failed for container '${containerName}' (${appType})."
         try {
-            runCommand("docker logs ${containerName} || true")
-        } catch (logError) {
-            steps.echo "⚠️ Unable to fetch logs for ${containerName}"
-        }
-        steps.error("🚫 Health check failed: ${e.message}")
-    }
-}
+            steps.sleep(time: 10, unit: 'SECONDS') // Allow container startup
 
-private String extractStatusCode(String output) {
-    def lines = output.readLines().findAll { it.trim() }
-    return lines[-1]?.trim()
-}
+            def success = false
+            for (int i = 1; i <= 10; i++) {
+                def code = "000"
+                try {
+                    if (steps.isUnix()) {
+                        code = steps.sh(
+                            script: "curl -s -o /dev/null -w \"%{http_code}\" ${url}",
+                            returnStdout: true
+                        ).trim()
+                    } else {
+                        def raw = steps.bat(
+                            script: "curl -s -o NUL -w \"%%{http_code}\" ${url}",
+                            returnStdout: true
+                        )
+                        code = extractStatusCode(raw)
+                    }
+                } catch (Exception ignored) {
+                    // leave code as "000"
+                }
+
+                steps.echo "🔁 Attempt ${i}: HTTP ${code}"
+                if (["200", "403", "302"].contains(code)) {
+                    steps.echo "✅ Health check passed with code ${code}"
+                    success = true
+                    break
+                }
+                steps.sleep(time: 3, unit: 'SECONDS')
+            }
+
+            if (!success) throw new Exception("Service did not become healthy within timeout.")
+
+        } catch (Exception e) {
+            steps.echo "❌ Health check failed for container '${containerName}' (${appType})."
+            try {
+                runCommand("docker logs ${containerName} || true")
+            } catch (logError) {
+                steps.echo "⚠️ Unable to fetch logs for ${containerName}"
+            }
+            steps.error("🚫 Health check failed: ${e.message}")
+        }
+    }
+
+    private String extractStatusCode(String output) {
+        def lines = output.readLines().findAll { it.trim() }
+        return lines[-1]?.trim()
+    }
 
     private String getHealthEndpoint(String appType) {
         switch (appType?.toLowerCase()) {
