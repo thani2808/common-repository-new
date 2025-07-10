@@ -18,6 +18,30 @@ class ApplicationBuilder implements Serializable {
 
     def initialize() {
         try {
+            // Step 1: Execute init.sh or init.bat depending on platform
+            def isWindows = !steps.isUnix()
+
+            if (isWindows) {
+                def scriptContent = steps.libraryResource('init.bat')
+                steps.writeFile file: 'init.bat', text: scriptContent
+                steps.bat '''
+                    echo 🚀 Executing init.bat...
+                    init.bat
+                    echo ✅ init.bat finished successfully
+                '''
+            } else {
+                def scriptContent = steps.libraryResource('init.sh')
+                steps.writeFile file: 'init.sh', text: scriptContent
+                steps.sh '''
+                    set -e
+                    chmod +x init.sh
+                    echo "🚀 Executing init.sh..."
+                    ./init.sh
+                    echo "✅ init.sh finished successfully"
+                '''
+            }
+
+            // Step 2: Load common-repo-list.js
             repoName = steps.params.REPO_NAME
             if (!repoName?.trim()) steps.error("❌ 'REPO_NAME' must be provided.")
 
@@ -88,22 +112,22 @@ class ApplicationBuilder implements Serializable {
         steps.cleanWs()
     }
 
-	void checkout(String branch = 'feature', int timeout = 20) {
-    	steps.checkout([
-        	$class: 'GitSCM',
-        	branches: [[name: "*/${branch}"]],
-        	doGenerateSubmoduleConfigurations: false,
-        	extensions: [
-            	[$class: 'CloneOption', timeout: timeout, shallow: false, noTags: false, reference: '', depth: 0],
-            	[$class: 'RelativeTargetDirectory', relativeTargetDir: "target-repo/${repoName}"]
-        	],
-        	userRemoteConfigs: [[
-            	url: "git@github.com:thani2808/${repoName}.git",
-            	credentialsId: 'private-key-jenkins',
-            	refspec: "+refs/heads/${branch}:refs/remotes/origin/${branch}"
-        	]]
-    	])
-	}
+    void checkout(String branch = 'feature', int timeout = 20) {
+        steps.checkout([
+            $class: 'GitSCM',
+            branches: [[name: "*/${branch}"]],
+            doGenerateSubmoduleConfigurations: false,
+            extensions: [
+                [$class: 'CloneOption', timeout: timeout, shallow: false, noTags: false, reference: '', depth: 0],
+                [$class: 'RelativeTargetDirectory', relativeTargetDir: "target-repo/${repoName}"]
+            ],
+            userRemoteConfigs: [[
+                url: "git@github.com:thani2808/${repoName}.git",
+                credentialsId: 'private-key-jenkins',
+                refspec: "+refs/heads/${branch}:refs/remotes/origin/${branch}"
+            ]]
+        ])
+    }
 
     void preRunDebug() {
         steps.echo "🔧 Pre-Run – env.APP_TYPE       = '${steps.env.APP_TYPE}'"
