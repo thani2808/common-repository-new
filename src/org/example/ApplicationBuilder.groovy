@@ -99,18 +99,24 @@ class ApplicationBuilder implements Serializable {
         }?.key
     }
 
-    String findAvailablePort(int start, int end) {
-        for (int port = start; port <= end; port++) {
-            if (steps.sh(script: "netstat -an | findstr :${port}", returnStatus: true) != 0) {
-                return port.toString()
-            }
-        }
-        return null
-    }
+	String findAvailablePort(int start, int end) {
+    	def isWindows = !steps.isUnix()
 
-    void cleanWorkspace() {
-        steps.cleanWs()
-    }
+    	for (int port = start; port <= end; port++) {
+        	def cmd = isWindows
+            	? "netstat -an | findstr :${port}"
+            	: "netstat -an | grep :${port}"
+
+        	def status = isWindows
+            	? steps.bat(script: cmd, returnStatus: true)
+            	: steps.sh(script: cmd, returnStatus: true)
+
+        	if (status != 0) {
+            	return port.toString()
+        	}
+    	}
+    	return null
+	}
 
     void checkout(String branch = 'feature', int timeout = 20) {
         steps.checkout([
