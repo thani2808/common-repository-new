@@ -18,7 +18,6 @@ class ApplicationBuilder implements Serializable {
 
     def initialize() {
         try {
-            // Step 1: Execute init.sh or init.bat depending on platform
             def isWindows = !steps.isUnix()
 
             if (isWindows) {
@@ -30,18 +29,23 @@ class ApplicationBuilder implements Serializable {
                     echo ✅ init.bat finished successfully
                 '''
             } else {
-                def scriptContent = steps.libraryResource('init.sh')
-                steps.writeFile file: 'init.sh', text: scriptContent
-                steps.sh '''
-                    set -e
-                    chmod +x init.sh
-                    echo "🚀 Executing init.sh..."
-                    ./init.sh
-                    echo "✅ init.sh finished successfully"
-                '''
+                try {
+                    def scriptContent = steps.libraryResource('init.sh')
+                    steps.writeFile file: 'init.sh', text: scriptContent
+                    steps.sh '''
+                        set -e
+                        chmod +x init.sh
+                        echo "🚀 Executing init.sh..."
+                        ./init.sh
+                    '''
+                    steps.echo "✅ Environment initialized for '${steps.env.APP_NAME}' in '${steps.env.DEPLOY_ENV}' mode"
+                } catch (Exception e) {
+                    steps.echo "❌ Failed during environment init: ${e.message}"
+                    steps.currentBuild.result = 'FAILURE'
+                    steps.error("Init failed")
+                }
             }
 
-            // Step 2: Load common-repo-list.js
             repoName = steps.params.REPO_NAME
             if (!repoName?.trim()) steps.error("❌ 'REPO_NAME' must be provided.")
 
@@ -99,24 +103,24 @@ class ApplicationBuilder implements Serializable {
         }?.key
     }
 
-	String findAvailablePort(int start, int end) {
-    	def isWindows = !steps.isUnix()
+    String findAvailablePort(int start, int end) {
+        def isWindows = !steps.isUnix()
 
-    	for (int port = start; port <= end; port++) {
-        	def cmd = isWindows
-            	? "netstat -an | findstr :${port}"
-            	: "netstat -an | grep :${port}"
+        for (int port = start; port <= end; port++) {
+            def cmd = isWindows
+                ? "netstat -an | findstr :${port}"
+                : "netstat -an | grep :${port}"
 
-        	def status = isWindows
-            	? steps.bat(script: cmd, returnStatus: true)
-            	: steps.sh(script: cmd, returnStatus: true)
+            def status = isWindows
+                ? steps.bat(script: cmd, returnStatus: true)
+                : steps.sh(script: cmd, returnStatus: true)
 
-        	if (status != 0) {
-            	return port.toString()
-        	}
-    	}
-    	return null
-	}
+            if (status != 0) {
+                return port.toString()
+            }
+        }
+        return null
+    }
 
     void checkout(String branch = 'feature', int timeout = 20) {
         steps.checkout([
