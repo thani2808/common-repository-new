@@ -16,6 +16,16 @@ class ApplicationBuilder implements Serializable {
         this.steps = steps
     }
 
+    void cleanWorkspace() {
+        steps.echo "🫉 Cleaning workspace..."
+        if (steps.isUnix()) {
+            steps.sh 'rm -rf *'
+        } else {
+            steps.bat 'del /F /Q *.* >nul 2>&1'
+        }
+        steps.echo "✅ Workspace cleaned."
+    }
+
     def initialize() {
         try {
             def isWindows = !steps.isUnix()
@@ -29,21 +39,15 @@ class ApplicationBuilder implements Serializable {
                     echo ✅ init.bat finished successfully
                 '''
             } else {
-                try {
-                    def scriptContent = steps.libraryResource('init.sh')
-                    steps.writeFile file: 'init.sh', text: scriptContent
-                    steps.sh '''
-                        set -e
-                        chmod +x init.sh
-                        echo "🚀 Executing init.sh..."
-                        ./init.sh
-                    '''
-                    steps.echo "✅ Environment initialized for '${steps.env.APP_NAME}' in '${steps.env.DEPLOY_ENV}' mode"
-                } catch (Exception e) {
-                    steps.echo "❌ Failed during environment init: ${e.message}"
-                    steps.currentBuild.result = 'FAILURE'
-                    steps.error("Init failed")
-                }
+                def scriptContent = steps.libraryResource('init.sh')
+                steps.writeFile file: 'init.sh', text: scriptContent
+                steps.sh '''
+                    set -e
+                    chmod +x init.sh
+                    echo "🚀 Executing init.sh..."
+                    ./init.sh
+                '''
+                steps.echo "✅ Environment initialized for '${steps.env.APP_NAME}' in '${steps.env.DEPLOY_ENV}' mode"
             }
 
             repoName = steps.params.REPO_NAME
@@ -282,27 +286,16 @@ class ApplicationBuilder implements Serializable {
         steps.echo "⏳ Starting health check for '${appType}' app on ${url}"
 
         try {
-            steps.sleep(time: 10, unit: 'SECONDS') // Allow container startup
+            steps.sleep(time: 10, unit: 'SECONDS')
 
             def success = false
             for (int i = 1; i <= 10; i++) {
                 def code = "000"
                 try {
-                    if (steps.isUnix()) {
-                        code = steps.sh(
-                            script: "curl -s -o /dev/null -w \"%{http_code}\" ${url}",
-                            returnStdout: true
-                        ).trim()
-                    } else {
-                        def raw = steps.bat(
-                            script: "curl -s -o NUL -w \"%%{http_code}\" ${url}",
-                            returnStdout: true
-                        )
-                        code = extractStatusCode(raw)
-                    }
-                } catch (Exception ignored) {
-                    // leave code as "000"
-                }
+                    code = steps.isUnix() ?
+                        steps.sh(script: "curl -s -o /dev/null -w \"%{http_code}\" ${url}", returnStdout: true).trim() :
+                        extractStatusCode(steps.bat(script: "curl -s -o NUL -w \"%%{http_code}\" ${url}", returnStdout: true))
+                } catch (Exception ignored) {}
 
                 steps.echo "🔁 Attempt ${i}: HTTP ${code}"
                 if (["200", "403", "302"].contains(code)) {
@@ -317,12 +310,8 @@ class ApplicationBuilder implements Serializable {
 
         } catch (Exception e) {
             steps.echo "❌ Health check failed for container '${containerName}' (${appType})."
-            try {
-                runCommand("docker logs ${containerName} || true")
-            } catch (logError) {
-                steps.echo "⚠️ Unable to fetch logs for ${containerName}"
-            }
-            steps.error("🚫 Health check failed: ${e.message}")
+            try { runCommand("docker logs ${containerName} || true") } catch (ignored) {}
+            steps.error("🚨 Health check failed: ${e.message}")
         }
     }
 
